@@ -126,9 +126,10 @@ if (terminalContent) {
     });
 }
 
-// Project card hover effect
+// Enhanced project card interactions
 const projectCards = document.querySelectorAll('.project-card');
 projectCards.forEach(card => {
+    // Mouse move effect
     card.addEventListener('mousemove', (e) => {
         const rect = card.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -137,12 +138,34 @@ projectCards.forEach(card => {
         card.style.setProperty('--mouse-x', `${x}px`);
         card.style.setProperty('--mouse-y', `${y}px`);
     });
+
+    // Add loading state simulation for project images/content
+    card.classList.add('loading');
+    setTimeout(() => {
+        card.classList.remove('loading');
+    }, Math.random() * 1000 + 500); // Simulate different loading times
 });
 
-// Skill progress animation
+// Enhanced skill category interactions
 const skillCategories = document.querySelectorAll('.skill-category');
 skillCategories.forEach(category => {
+    // Add loading state simulation
+    category.classList.add('loading');
+    setTimeout(() => {
+        category.classList.remove('loading');
+    }, Math.random() * 1000 + 500);
+
+    // Add hover interaction
     category.addEventListener('mouseenter', () => {
         category.classList.add('active');
     });
+});
+
+// Certificate cards loading animation
+const certCards = document.querySelectorAll('.cert-card');
+certCards.forEach(card => {
+    card.classList.add('loading');
+    setTimeout(() => {
+        card.classList.remove('loading');
+    }, Math.random() * 1000 + 500);
 });
