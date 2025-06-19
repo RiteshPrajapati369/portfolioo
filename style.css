@@ -860,3 +860,169 @@ footer {
     transform: none;
     perspective: none;
 }
+
+/* Add these media queries at the end of your CSS file */
+
+/* General Responsive Adjustments */
+@media screen and (max-width: 768px) {
+    /* Navigation */
+    .nav-links {
+        display: none;
+        position: fixed;
+        top: 70px;
+        left: 0;
+        width: 100%;
+        background: rgba(10, 10, 10, 0.95);
+        padding: 1rem;
+        flex-direction: column;
+        align-items: center;
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid rgba(0, 255, 157, 0.2);
+    }
+
+    .nav-links.active {
+        display: flex;
+    }
+
+    .menu-toggle {
+        display: flex;
+    }
+
+    /* Hero Section */
+    .glitch {
+        font-size: 2.5rem; /* Smaller font for mobile */
+    }
+
+    .typewriter {
+        font-size: 1rem;
+        white-space: normal; /* Allow text to wrap */
+        border-right: none;
+        animation: none;
+        text-align: center;
+    }
+
+    /* Grid Layouts */
+    .skills-grid,
+    .projects-grid,
+    .certs-grid {
+        grid-template-columns: 1fr; /* Single column for mobile */
+        gap: 1.5rem;
+    }
+
+    /* Section Padding */
+    section {
+        padding: 4rem 1rem;
+    }
+
+    /* CTA Buttons */
+    .cta-buttons {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .cta-primary,
+    .cta-secondary {
+        width: 100%;
+        text-align: center;
+        padding: 1rem 2rem;
+    }
+}
+
+/* Small Phone Adjustments */
+@media screen and (max-width: 375px) {
+    .glitch {
+        font-size: 2rem;
+    }
+
+    .section-header h2 {
+        font-size: 2rem;
+    }
+
+    .terminal {
+        padding: 0.5rem;
+    }
+
+    .terminal-content {
+        font-size: 0.8rem;
+    }
+}
+
+/* Tablet Adjustments */
+@media screen and (min-width: 769px) and (max-width: 1024px) {
+    .skills-grid,
+    .projects-grid,
+    .certs-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .glitch {
+        font-size: 3.5rem;
+    }
+}
+
+/* Landscape Mode Adjustments */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+    #home {
+        height: auto;
+        padding: 6rem 2rem;
+    }
+
+    .hero-content {
+        margin: 2rem 0;
+    }
+}
+
+/* High Resolution Screens */
+@media screen and (min-width: 1400px) {
+    .container {
+        max-width: 1320px;
+    }
+
+    html {
+        font-size: 18px;
+    }
+}
+
+/* Add these utility classes */
+.container {
+    width: 100%;
+    padding-right: 1rem;
+    padding-left: 1rem;
+    margin-right: auto;
+    margin-left: auto;
+}
+
+@media (min-width: 576px) {
+    .container {
+        max-width: 540px;
+    }
+}
+
+@media (min-width: 768px) {
+    .container {
+        max-width: 720px;
+    }
+}
+
+@media (min-width: 992px) {
+    .container {
+        max-width: 960px;
+    }
+
+
+
+
+
+
+
+
+
+/* Add this to your existing menu toggle JavaScript */}    }        max-width: 1140px;    .container {@media (min-width: 1200px) {}}
+
+@media (min-width: 1200px) {
+    .container {
+        max-width: 1140px;
+    }
+}
+
+/* Add this to your existing menu toggle JavaScript */
