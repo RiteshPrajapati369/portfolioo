@@ -189,7 +189,6 @@ nav {
 #home {
     height: 100vh;
     display: flex;
-    margin-top: 2rem;
     flex-direction: column;
     justify-content: center;
     align-items: center;
@@ -197,6 +196,7 @@ nav {
     padding: 0 2rem;
     position: relative;
     overflow: hidden;
+    margin-top: 2rem;
 }
 
 .hero-content {
