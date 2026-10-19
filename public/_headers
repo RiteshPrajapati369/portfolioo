@@ -1,0 +1,7 @@
+# Static asset immutable caching for Cloudflare
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Favicon and media
+/favicon.ico
+  Cache-Control: public, max-age=86400

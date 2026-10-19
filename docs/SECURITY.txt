@@ -1,0 +1,78 @@
+# Security
+
+Security model for the Ritesh Prajapati cybersecurity portfolio.
+
+## Authentication
+
+- Supabase Auth (email/password + optional OAuth).
+- Sessions in HTTP-only cookies (`@supabase/ssr`).
+- Dashboard protected by middleware + server layout using `auth.getUser()`.
+- **MFA required**: after correct password the user must enter a TOTP code
+  from Google Authenticator (or compatible app).
+- **Account lockout**: after 3 consecutive failed password attempts the
+  account is locked for exactly 24 hours. The lock is stored server-side
+  against the account and applies to every device and network. Changing IP
+  or device does not lift the lock.
+
+## Authorization
+
+- Route protection via middleware and layout.
+- Data authorization enforced by RLS (application never bypasses it for
+  normal CRUD).
+
+## Row Level Security
+
+- Enabled on every table.
+- Public read: published + non-deleted + owner-scoped.
+- Writes: ownership via `profile_id IN (SELECT id FROM profiles WHERE user_id = auth.uid())`
+  with both `USING` and `WITH CHECK`.
+- Contact messages: restricted anonymous insert only.
+
+## Storage policies
+
+Public read for displayable assets; authenticated owner-scoped writes
+using the `/<user-id>/…` path convention.
+
+## Secret handling
+
+| Variable                        | Scope         | Notes                          |
+|---------------------------------|---------------|--------------------------------|
+| NEXT_PUBLIC_SUPABASE_URL        | client+server | Safe                           |
+| NEXT_PUBLIC_SUPABASE_ANON_KEY   | client+server | Safe                           |
+| SUPABASE_SERVICE_ROLE_KEY       | server only   | Never NEXT_PUBLIC              |
+| NEXT_PUBLIC_SITE_URL            | client+server | Canonical URL                  |
+| NEXT_PUBLIC_PORTFOLIO_PROFILE_ID| client+server | Optional owner UUID            |
+
+Real `.env*` files are gitignored.
+
+## Content Security Policy & Headers
+
+Set in `src/middleware.ts`:
+
+- Strict CSP (img-src allows blob: only for temporary previews)
+- X-Frame-Options: DENY
+- X-Content-Type-Options: nosniff
+- Referrer-Policy
+- HSTS + COOP/CORP in production
+
+## API / Contact protection
+
+- Zod schema validation
+- Rate limiting
+- No file uploads accepted on the public contact form
+- Injection protection (SQL / XSS / etc. via validation + parameterized queries)
+- Owner resolved server-side with service-role key
+- Payload forced to safe values before insert
+
+## Owner-profile protection
+
+Deterministic owner resolution prevents any other registered user from
+appearing on the public site.
+
+## Known limitations & recommendations
+
+- In-memory contact rate limiter is best-effort; prefer Cloudflare WAF or
+  a distributed store for high traffic.
+- Keep open signup disabled for this single-owner portfolio.
+- Enroll MFA immediately after first login.
+- Monitor the `login_attempts` table.

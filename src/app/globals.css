@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Cybersecurity Light Palette: #F9F8F6, #EFE9E3, #D9CFC7, #C9B59C */
+    --background: 40 20% 97%;       /* #F9F8F6 */
+    --foreground: 223 35% 15%;      /* #182033 deep charcoal for maximum readability */
+    --card: 30 25% 93%;             /* #F1ECE6 */
+    --card-foreground: 223 35% 15%;
+    --popover: 40 20% 97%;
+    --popover-foreground: 223 35% 15%;
+    
+    /* Primary in light mode: Deep rich warm bronze for high contrast on light backgrounds */
+    --primary: 28 38% 36%;          /* #805233 */
+    --primary-foreground: 40 20% 98%;
+    
+    --secondary: 27 18% 85%;        /* #DFD7D0 */
+    --secondary-foreground: 223 35% 15%;
+    --muted: 30 20% 90%;            /* #EAE4DE */
+    --muted-foreground: 24 16% 28%; /* #53453C - dark, crisp, clear contrast on light background */
+    --accent: 28 38% 36%;           /* #805233 */
+    --accent-foreground: 40 20% 98%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 40 20% 98%;
+    --border: 27 18% 78%;           /* #CEBFA */
+    --input: 27 18% 78%;
+    --ring: 28 38% 36%;
+    --radius: 0.75rem;
+
+    /* Raw Palette Tokens */
+    --color-light-bg: #F9F8F6;
+    --color-light-card: #EFE9E3;
+    --color-light-border: #D9CFC7;
+    --color-light-accent: #C9B59C;
+
+    --color-dark-bg: #202940;
+    --color-dark-card: #4B4038;
+    --color-dark-border: #9A8678;
+    --color-dark-accent: #CAAA98;
+  }
+
+  .dark {
+    /* Cybersecurity Dark Palette: #202940, #4B4038, #9A8678, #CAAA98 */
+    --background: 223 33% 19%;      /* #202940 */
+    --foreground: 40 20% 97%;       /* #F9F8F6 warm light text */
+    --card: 25 15% 26%;             /* #4B4038 */
+    --card-foreground: 40 20% 97%;
+    --popover: 223 33% 19%;
+    --popover-foreground: 40 20% 97%;
+    --primary: 22 33% 69%;          /* #CAAA98 */
+    --primary-foreground: 223 35% 15%;
+    --secondary: 25 15% 26%;        /* #4B4038 */
+    --secondary-foreground: 40 20% 97%;
+    --muted: 25 15% 26%;            /* #4B4038 */
+    --muted-foreground: 25 14% 75%; /* High readability on dark */
+    --accent: 25 14% 54%;           /* #9A8678 */
+    --accent-foreground: 40 20% 97%;
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 40 20% 97%;
+    --border: 25 14% 50%;           /* #9A8678 */
+    --input: 25 15% 26%;
+    --ring: 22 33% 69%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Custom scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary));
+}
+
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Smooth continuous floating & subtle orbiting motion for celestial bodies */
+@keyframes celestialFloatOrbit {
+  0% {
+    transform: translate3d(0px, 0px, 0) scale(1);
+  }
+  25% {
+    transform: translate3d(2px, -3px, 0) scale(1.02);
+  }
+  50% {
+    transform: translate3d(4px, -1px, 0) scale(1);
+  }
+  75% {
+    transform: translate3d(2px, 2px, 0) scale(0.98);
+  }
+  100% {
+    transform: translate3d(0px, 0px, 0) scale(1);
+  }
+}
+
+/* Natural sky transit: smooth continuous left-to-right celestial trajectory across the sky */
+@keyframes skyTransit {
+  0% {
+    transform: translate3d(-4vw, 28px, 0);
+    opacity: 0;
+  }
+  3% {
+    opacity: 1;
+  }
+  25% {
+    transform: translate3d(24vw, 12px, 0);
+    opacity: 1;
+  }
+  50% {
+    transform: translate3d(50vw, 0px, 0);
+    opacity: 1;
+  }
+  75% {
+    transform: translate3d(76vw, 12px, 0);
+    opacity: 1;
+  }
+  97% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(104vw, 28px, 0);
+    opacity: 0;
+  }
+}

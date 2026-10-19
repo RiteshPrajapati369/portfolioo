@@ -1,0 +1,101 @@
+# Development
+
+Local setup guide for the Ritesh Prajapati cybersecurity portfolio.
+
+## Prerequisites
+
+- Node.js 18+ (LTS)
+- npm 9+
+- Supabase account + project
+
+## Installation
+
+```bash
+git clone <your-repo-url>
+cd <project-folder>
+npm install
+```
+
+## Environment configuration
+
+```bash
+cp .env.example .env.local
+```
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_PORTFOLIO_PROFILE_ID=your-profile-uuid
+
+# Server-only
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-secret
+```
+
+## Supabase setup
+
+1. Create project and note URL + keys.
+2. (Optional) `supabase link --project-ref <ref>`
+3. Apply migrations:
+
+```bash
+supabase db push
+```
+
+4. Enable email confirmation and disable open signup.
+5. Configure OAuth providers if needed (callback: `<SITE_URL>/auth/callback`).
+
+## Local development
+
+```bash
+npm run dev
+```
+
+Open http://localhost:3000.
+
+### Useful scripts
+
+| Script          | Description                    |
+|-----------------|--------------------------------|
+| `npm run dev`   | Dev server                     |
+| `npm run build` | Production build               |
+| `npm start`     | Production server              |
+| `npm run lint`  | ESLint                         |
+| `npm run format`| Prettier                       |
+| `npm test`      | Unit tests                     |
+
+## Authentication notes
+
+- Login requires password + Google Authenticator TOTP.
+- 3 failed attempts → 24-hour account lock (server-side).
+- Dashboard at `/dashboard/*`.
+- First-time setup: create account → enroll MFA → set profile photo
+  (circular) → add projects, skills, blog posts, social links.
+
+## Default content guidance (cybersecurity)
+
+**Projects**
+- IDS/IPS
+- Personal Portfolio
+- Vulnerability Assessment Toolkit
+- Secure Authentication System
+
+**Skills**
+- Penetesting / Bug Hunting
+- HTML
+- CSS
+- JS
+- PHP
+
+**Navbar**
+Home · Work · Blog · Contact
+
+**Footer**
+Renders only the social / contact links the owner has configured.
+Otherwise shows copyright + “Design by Ritesh Prajapati”.
+
+**Colors**
+- Light: `#F9F8F6`, `#EFE9E3`, `#D9CFC7`, `#C9B59C`
+- Dark: `#202940`, `#4B4038`, `#9A8678`, `#CAAA98`
+
+Simple modern look, no neon accents.

@@ -1,0 +1,87 @@
+# Database
+
+Supabase PostgreSQL is the single source of truth. All tables use RLS,
+ownership via `profile_id`, soft-delete (`deleted_at`), and audit columns.
+
+## Migration strategy
+
+Migrations in `supabase/migrations/` applied with `supabase db push`.
+Never edit applied migrations — add new ones.
+
+Core schema (001–013) + hardening (015–021) + MFA / lockout tables + blog
+support.
+
+## Tables and relationships
+
+- **profiles** — owner identity (circular avatar URL stored here).
+- **navigation / nav_links**
+- **site_settings / seo_settings**
+- **projects / technologies / project_technologies / project_images**
+- **skills**
+- **services**
+- **blog_posts / blog_images** (or media references)
+- **social_links** — Facebook, Instagram, WhatsApp, phone, etc.
+- **contact_messages**
+- **media_library**
+- **login_attempts** — tracks failed logins for the 24-hour lockout
+- **mfa_factors** / related metadata (or Supabase Auth MFA tables)
+
+Most content tables share the standard shape:
+
+```
+id, profile_id, content columns, status, sort_order,
+deleted_at, created_at, updated_at, created_by, updated_by
+```
+
+### Key relationships
+
+- `profiles.user_id → auth.users.id`
+- content tables → `profiles.id`
+- project / blog images and technologies linked by foreign keys
+- `contact_messages.profile_id` points to the owner
+- `login_attempts` keyed by user / email for account-wide lockout
+
+## Ownership model
+
+Single-owner cybersecurity portfolio.
+
+Owner resolved by:
+1. `NEXT_PUBLIC_PORTFOLIO_PROFILE_ID` if set
+2. otherwise first-created non-deleted profile
+
+A newly registered user can never become the public owner.
+
+## Row Level Security (RLS)
+
+- Anon: SELECT published, non-deleted content belonging to the owner;
+  INSERT contact messages only with `status='new'` and null audit fields.
+- Authenticated: full CRUD only on own `profile_id` rows
+  (`USING` + `WITH CHECK` ownership subquery).
+- Profiles expose only public-safe columns to anon.
+- Storage: public read, owner-scoped write via path prefix.
+
+## Storage buckets
+
+| Bucket        | Use                          | Notes                  |
+|---------------|------------------------------|------------------------|
+| avatars       | Circular profile photo       | Public read            |
+| resumes       | CV / resume                  | Public read            |
+| projects      | Project images               | Public read            |
+| blog          | Blog / study images          | Public read            |
+| media         | General media library        | Public read            |
+| testimonials  | (kept for schema consistency)| Public read            |
+
+Writes remain authenticated and owner-scoped.
+
+## Public / private boundaries
+
+**Public**
+- Published content, blog posts, social links that the owner has set,
+  contact form submission.
+
+**Private**
+- Dashboard CRUD, contact messages, login attempt history, MFA factors,
+  audit columns.
+
+**Never exposed to the browser**
+- `SUPABASE_SERVICE_ROLE_KEY`

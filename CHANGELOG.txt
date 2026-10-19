@@ -1,0 +1,99 @@
+# Changelog
+
+All notable changes to this portfolio project are documented here.
+
+## [Unreleased]
+
+### Cloudflare Workers deployment preparation
+
+- Adopted **Cloudflare Workers** as the production deployment platform using
+  the official `@opennextjs/cloudflare` adapter (pinned to `1.14.10`, the
+  latest version supporting Next.js 14). Added `wrangler` v4 as a dev
+  dependency.
+- Added `wrangler.jsonc` (Worker entrypoint `.open-next/worker.js`,
+  `compatibility_flags: ["nodejs_compat"]`, `ASSETS` static-asset binding),
+  `open-next.config.ts`, and `public/_headers` for immutable static-asset
+  caching.
+- Added npm scripts: `preview`, `deploy`, `upload`, `cf-typegen`.
+- `/api/contact` now resolves client IPs from `CF-Connecting-IP` /
+  `X-Forwarded-For` / `X-Real-IP` (Cloudflare-safe) with the previous
+  `request.ip` behavior retained as fallback.
+- `.gitignore` extended for `.open-next/`, `.wrangler/`, `.dev.vars`.
+- No application/UI, database, RLS, or content changes.
+
+### Portfolio + CMS refactor (Cybersecurity focus)
+
+- **Removed local/mock content fallback.** The public homepage now fetches all
+  content from Supabase through `ContentService`. When Supabase is empty or
+  unavailable the site renders proper loading, empty, and error states — never
+  hardcoded or legacy demo content.
+- **Hardened owner profile selection.** The public profile is resolved
+  deterministically via `NEXT_PUBLIC_PORTFOLIO_PROFILE_ID` (preferred) or the
+  first-created profile. The buggy "select most recently updated profile" logic
+  was removed.
+- **Homepage & navigation updated for cybersecurity portfolio.**
+  - Navbar: **Home · Work · Blog · Contact**
+  - Sections: Navbar → Hero → About → Projects (Work) → Contact → Footer
+  - Testimonials section removed; Blog is a dedicated page + admin section.
+  - About section consolidates Skills + Services.
+- **Default content oriented to cybersecurity:**
+  - Projects: IDS/IPS, Personal Portfolio, Vulnerability Assessment Toolkit,
+    Secure Authentication System.
+  - Skills: Penetesting / Bug Hunting, HTML, CSS, JS, PHP.
+- **Blog system added.** Full CRUD in dashboard with image upload support
+  (same storage + path-prefix model used for projects/media). Blog posts
+  support rich content for study notes, write-ups, and research.
+- **Contact & social links fully CMS-driven.** Owner can update Facebook,
+  Instagram, WhatsApp, phone, email, etc. from the dashboard. Footer
+  automatically renders only the links that exist (with proper icons and
+  external/mailto/tel handlers). If none are set, footer shows only copyright
+  + “Design by Ritesh Prajapati”.
+- **Visual identity**
+  - Profile photo rendered in a circular frame.
+  - Light theme palette: `#F9F8F6`, `#EFE9E3`, `#D9CFC7`, `#C9B59C`
+  - Dark theme palette: `#202940`, `#4B4038`, `#9A8678`, `#CAAA98`
+  - Simple, modern, non-neon aesthetic.
+- **Removed legacy data layer.** Deleted local mock files and static assets.
+
+### Authentication & Account Protection
+
+- Standardized on `@supabase/ssr` for browser, server, and middleware clients.
+- Login, signup, password reset, OAuth callback, and server-side logout use
+  HTTP-only cookies.
+- `/dashboard/*` protected server-side (layout + middleware) with `auth.getUser()`.
+- **MFA (TOTP / Google Authenticator)** required at login.
+- **Account lockout**: after 3 consecutive failed login attempts the account is
+  locked for exactly 24 hours. Lock is server-side and account-wide (not device
+  or IP based). Changing network or device does not bypass the lock.
+
+### Database
+
+- RLS enabled on every table; write policies use both `USING` and `WITH CHECK`
+  for ownership enforcement.
+- Public read restricted to published, non-deleted rows.
+- `contact_messages` allows anonymous insert only with `status='new'` and null
+  audit fields.
+- New / updated migrations cover CMS hardening, public indexes, profile column
+  restrictions, storage public-read, project metadata, profile insert enforcement,
+  **login attempt tracking + lockout**, and **MFA enrollment metadata**.
+- Blog tables and media support fully integrated.
+
+### Storage
+
+- Public-read buckets (avatars, resumes, projects, blog, media, etc.).
+- Write policies remain authenticated and owner-scoped (`/<user-id>/…` paths).
+- `blob:` URLs used only for temporary client-side previews — never persisted.
+
+### Security
+
+- CSP + security headers set in middleware.
+- Contact endpoint: Zod validation, rate limiting, injection protection,
+  no file uploads allowed on the public form, service-role used only server-side.
+- MFA + 24-hour account lockout after 3 failed attempts.
+- `.env.local` / `.env` gitignored; only `.env.example` committed.
+
+### Infrastructure / cleanup
+
+- Added `docs/` directory with full architecture, database, security,
+  development, and deployment guides.
+- Production build and TypeScript validation remain green.

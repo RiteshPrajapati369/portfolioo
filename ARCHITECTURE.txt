@@ -1,0 +1,117 @@
+# Architecture
+
+This document describes the overall architecture of the Ritesh Prajapati
+cybersecurity portfolio application. It is built with Next.js 14 (App Router),
+TypeScript, React, and Supabase (PostgreSQL, Auth, Storage, Row Level Security).
+
+## Application overview
+
+Single-owner cybersecurity portfolio with a password-protected CMS / admin
+dashboard. The public site renders content from Supabase; the dashboard lets the
+owner manage it. Supabase is the single source of truth — there is **no local
+or mock content fallback**. Empty or unavailable states are handled properly.
+
+Focus areas: penetration testing, bug hunting, IDS/IPS, secure development
+practices, and technical write-ups via the Blog.
+
+## Technology stack
+
+- **Framework:** Next.js 14.2 (App Router)
+- **Language:** TypeScript
+- **UI:** React 18, Tailwind CSS, Framer Motion, lucide-react
+- **Notifications:** Sonner
+- **Validation:** Zod
+- **Backend & auth:** Supabase (`@supabase/ssr`, `@supabase/supabase-js`)
+- **MFA:** TOTP (Google Authenticator compatible)
+- **Styling:** CSS variables + Tailwind tokens for light / dark themes
+  using the defined cybersecurity-friendly palette (no neon).
+
+## Directory structure
+
+```
+src/
+├── app/
+│   ├── api/contact/         # Contact form (validated, rate-limited, no files)
+│   ├── auth/                # login, signup, MFA challenge, reset, OAuth
+│   ├── dashboard/           # Protected CMS (including Blog + image upload)
+│   ├── blog/                # Public blog listing + post pages
+│   ├── layout.tsx
+│   ├── page.tsx             # Public homepage
+│   ├── robots.ts / sitemap.ts
+│   ├── loading / error / not-found
+├── components/
+│   ├── admin/
+│   ├── auth/
+│   ├── dashboard/
+│   ├── sections/            # Hero, About, Projects (Work), Contact, Footer
+│   └── ui/
+├── config/dashboard-nav.ts
+├── data/tech-icons.ts
+├── lib/
+│   ├── services.ts          # ContentService
+│   ├── public-data.ts
+│   ├── supabase-*.ts
+│   ├── auth*.ts
+│   ├── feedback.ts
+│   └── usePublicList.ts
+├── middleware.ts            # Route protection + security headers + lockout check
+├── types/index.ts
+└── globals.css
+```
+
+`supabase/migrations/` contains the full ordered schema, RLS, MFA metadata,
+and login-attempt / lockout tables.
+
+## Public homepage architecture
+
+```
+Navbar (Home · Work · Blog · Contact)
+Hero (circular profile photo)
+About (includes Skills + Services)
+Projects / Work
+Contact
+Footer
+```
+
+- Blog is a dedicated route (`/blog` and `/blog/[slug]`).
+- No standalone Testimonials section.
+- Navbar driven by Supabase `navigation` / `nav_links` with structural anchors.
+- Profile photo is always rendered inside a circular frame.
+- Every section uses `ContentService` and proper loading / empty / error states.
+
+## Dashboard (CMS) architecture
+
+Protected by middleware + server layout. Owner can manage:
+
+- Overview, Profile (circular avatar upload), About, Projects, Blog
+  (rich posts + image uploads), Skills, Services, Social Links, SEO,
+  Settings, Messages, Media Library.
+
+Image upload follows the same secure path-prefix model used for projects and
+media (`/<user-id>/…`). Blog supports the same upload pattern so study notes
+and write-ups can contain images easily.
+
+## Authentication flow (with MFA + lockout)
+
+1. Browser, server, and middleware clients via `@supabase/ssr`.
+2. Password attempt is checked against the account lockout table first.
+3. On successful password, TOTP challenge (Google Authenticator) is required.
+4. 3 consecutive failures → account locked for exactly 24 hours
+   (server-side, account-wide — independent of device or IP).
+5. Logout is a server action that clears cookies.
+6. Dashboard routes are protected with `auth.getUser()`.
+
+## Data flow
+
+```
+Public visitor ──▶ React section / Blog ──▶ ContentService ──▶ Supabase (anon RLS)
+Dashboard user ──▶ Dashboard page ──▶ ContentService ──▶ Supabase (auth RLS)
+```
+
+All errors are mapped through a central error helper.
+
+## Storage flow
+
+Uploads (avatar, resume, project images, blog images, media library) go to
+Supabase Storage buckets with public-read / authenticated owner-write policies.
+Temporary `blob:` previews are never persisted.

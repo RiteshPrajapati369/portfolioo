@@ -1,0 +1,109 @@
+# Deployment
+
+This guide covers deploying the cybersecurity portfolio to production.
+
+## Production platform: Cloudflare Workers
+
+The application is deployed to **Cloudflare Workers** using the official
+[OpenNext Cloudflare adapter](https://opennext.js.org/cloudflare)
+(`@opennextjs/cloudflare`). The full Node.js runtime of Next.js is used
+(Server Components, Middleware, Server Actions, Route Handlers, cookies) via
+the `nodejs_compat` compatibility flag.
+
+### Architecture
+
+- `npm run build` produces the standard Next.js build (`.next/`).
+- `npx opennextjs-cloudflare build` transforms it into a Worker
+  (`.open-next/worker.js`) plus static assets (`.open-next/assets/`).
+- `wrangler.jsonc` defines the Worker: `main`, `compatibility_date`,
+  `compatibility_flags: ["nodejs_compat"]`, and the `ASSETS` static-asset
+  binding. `public/_headers` adds immutable caching for `/_next/static/*`.
+- Environment variables/secrets are configured in the Cloudflare dashboard
+  (Worker → Settings → Variables and Secrets) or via `.dev.vars` locally
+  (gitignored).
+- Middleware, Server Actions, and Route Handlers (including `/api/contact`)
+  all run inside the Worker. The contact endpoint resolves client IPs from
+  the `CF-Connecting-IP` header.
+- Note: the contact rate limiter is in-memory (per-isolate). Cloudflare WAF /
+  rate-limiting rules can be used as an additional layer.
+
+### Commands
+
+```bash
+npm run build      # standard Next.js build
+npm run preview    # build + run locally in the Workers runtime
+npm run deploy     # build + deploy to Cloudflare
+npm run upload     # build + upload without promoting
+npm run cf-typegen # generate CloudflareEnv types
+```
+
+## Production environment variables
+
+| Variable | Scope | Required | Purpose |
+|---|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | client + server | yes | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client + server | yes | Public anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | **server only** | yes | Contact owner resolution + lockout checks — never expose |
+| `NEXT_PUBLIC_SITE_URL` | client + server | yes | Canonical site URL |
+| `NEXT_PUBLIC_PORTFOLIO_PROFILE_ID` | client + server | no | Deterministic owner profile UUID |
+
+**Never** put `SUPABASE_SERVICE_ROLE_KEY` in a `NEXT_PUBLIC_*` variable.
+
+## Supabase migration deployment
+
+```bash
+supabase db push
+```
+
+Applies all migrations (including MFA metadata and login-attempt / lockout tables).
+
+## Deployment sequence
+
+1. Review and merge code.
+2. Apply migrations: `supabase db push`.
+3. Set all production environment variables/secrets on the Cloudflare Worker.
+4. Connect the GitHub repository to Cloudflare Workers Builds (or run
+   `npm run deploy`). Build command: `npx opennextjs-cloudflare build`.
+5. On first deploy, register the owner account at `/auth/signup`, confirm the
+   email, enroll Google Authenticator (TOTP) MFA, then populate content
+   through the dashboard.
+6. Configure OAuth (if used) and add production callback + reset URLs to the
+   Supabase Auth allow-list.
+
+## Custom domain
+
+Attach the custom domain in Cloudflare, set `NEXT_PUBLIC_SITE_URL` to the
+final `https://` domain, and redeploy.
+
+## Post-deployment verification
+
+- Visit `/` — homepage renders owner content (or proper empty/error states).
+- Circular profile photo appears correctly.
+- Navbar: Home · Work · Blog · Contact.
+- Blog page loads and images render.
+- Dashboard: all sections (including Blog + image upload) work.
+- Contact form: Zod validation + injection protection active; message lands in
+  `contact_messages`.
+- Failed login × 3 → account locked for 24 hours (test from another device).
+- MFA required on successful password entry.
+- Footer shows only configured social/contact links (or copyright + 
+  “Design by Ritesh Prajapati” when empty).
+- Security headers and CSP present.
+
+## Rollback considerations
+
+- Database: additive migrations only. Use compensating migrations for rollback.
+- Application: `npx wrangler rollback` or dashboard rollback to previous version.
+
+## Security checklist
+
+- [ ] `SUPABASE_SERVICE_ROLE_KEY` is server-only.
+- [ ] `NEXT_PUBLIC_PORTFOLIO_PROFILE_ID` set to owner UUID.
+- [ ] `NEXT_PUBLIC_SITE_URL` points to production domain.
+- [ ] Email confirmation enabled.
+- [ ] Open signup disabled (single-owner).
+- [ ] MFA (Google Authenticator) enrolled for the owner account.
+- [ ] Login lockout table and logic verified.
+- [ ] Contact form rejects injections and does not accept file uploads.
+- [ ] Storage buckets have correct public-read / owner-write policies.
+- [ ] All relevant migrations applied.
