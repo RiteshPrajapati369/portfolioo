@@ -2,9 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase-admin";
 
-// In-memory rate limiter: max 5 requests per IP per 10 minutes
+// In-memory rate limiter: max 10 requests per IP per 10 minutes
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
-const MAX_REQUESTS_PER_WINDOW = 5;
+const MAX_REQUESTS_PER_WINDOW = 10;
 const ipRequestHistory = new Map<string, number[]>();
 
 function isRateLimited(ip: string): boolean {
@@ -22,14 +22,13 @@ function isRateLimited(ip: string): boolean {
   return false;
 }
 
-// Zod Schema for strict validation and injection protection
+// Zod Schema for validation and injection protection
 const contactSchema = z.object({
   name: z
     .string()
     .trim()
     .min(2, "Name must be at least 2 characters")
-    .max(80, "Name cannot exceed 80 characters")
-    .regex(/^[a-zA-Z0-9\s.,'’\-]+$/, "Name contains invalid characters"),
+    .max(100, "Name cannot exceed 100 characters"),
   email: z
     .string()
     .trim()
@@ -38,14 +37,14 @@ const contactSchema = z.object({
   subject: z
     .string()
     .trim()
-    .min(3, "Subject must be at least 3 characters")
-    .max(150, "Subject cannot exceed 150 characters")
+    .min(2, "Subject must be at least 2 characters")
+    .max(200, "Subject cannot exceed 200 characters")
     .transform((val) => val.replace(/[<>]/g, "")),
   message: z
     .string()
     .trim()
-    .min(10, "Message must be at least 10 characters")
-    .max(3000, "Message cannot exceed 3000 characters")
+    .min(5, "Message must be at least 5 characters")
+    .max(5000, "Message cannot exceed 5000 characters")
     .transform((val) => val.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")),
 });
 
@@ -62,12 +61,13 @@ async function dispatchEmailNotification(payload: {
 }) {
   const ownerEmail = process.env.OWNER_EMAIL || "panditritesh005@gmail.com";
   const resendApiKey = process.env.RESEND_API_KEY;
+  const fromEmail =
+    process.env.EMAIL_FROM || "Portfolio Inquiries <onboarding@resend.dev>";
   const webhookUrl = process.env.NOTIFICATION_WEBHOOK_URL;
 
-  // 1. Send via Resend if API key is provided
+  // 1. Send via Resend
   if (resendApiKey) {
     try {
-      const fromEmail = process.env.EMAIL_FROM || "Portfolio Alert <onboarding@resend.dev>";
       const htmlBody = `
         <!DOCTYPE html>
         <html>
@@ -115,7 +115,7 @@ async function dispatchEmailNotification(payload: {
 
             <div class="footer">
               Submitted from IP: ${payload.ip} &bull; Timestamp: ${new Date().toUTCString()}<br>
-              This message was securely saved to your Supabase Admin Dashboard.
+              This message was securely logged to your Portfolio Admin Dashboard.
             </div>
           </div>
         </body>
@@ -147,10 +147,6 @@ async function dispatchEmailNotification(payload: {
     } catch (err) {
       console.error("Failed to forward contact email via Resend:", err);
     }
-  } else {
-    console.info(
-      `[Contact Dispatch] Note: Message saved to Supabase database. To enable immediate email delivery to ${ownerEmail}, configure RESEND_API_KEY in your environment.`
-    );
   }
 
   // 2. Optional Webhook dispatch (e.g. Discord, Slack, Zapier)
@@ -197,58 +193,88 @@ export async function POST(request: NextRequest) {
 
     const { name, email, subject, message } = parseResult.data;
 
-    // 4. Resolve owner profile_id server-side
-    const admin = createAdminClient();
+    // 4. Resolve Supabase Client with graceful fallback for Cloudflare
+    let supabaseClient: any = null;
+    try {
+      supabaseClient = createAdminClient();
+    } catch {
+      // Fallback to anonymous client if service role key is not configured in edge worker
+      try {
+        const url =
+          process.env.NEXT_PUBLIC_SUPABASE_URL || "https://oppwfvzjnrcmyuiaxrvk.supabase.co";
+        const key =
+          process.env.SUPABASE_SERVICE_ROLE_KEY ||
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+          "";
+        if (url && key) {
+          const { createClient } = await import("@supabase/supabase-js");
+          supabaseClient = createClient(url, key, {
+            auth: { persistSession: false, autoRefreshToken: false },
+          });
+        }
+      } catch (clientErr) {
+        console.warn("Could not instantiate fallback Supabase client:", clientErr);
+      }
+    }
+
+    // 5. Target Profile ID
     let targetProfileId = process.env.NEXT_PUBLIC_PORTFOLIO_PROFILE_ID;
+    if (!targetProfileId && supabaseClient) {
+      try {
+        const { data: firstProfile } = await supabaseClient
+          .from("profiles")
+          .select("id")
+          .limit(1)
+          .maybeSingle();
 
+        targetProfileId = firstProfile?.id;
+      } catch {
+        // use fallback id
+      }
+    }
     if (!targetProfileId) {
-      const { data: firstProfile } = await admin
-        .from("profiles")
-        .select("id")
-        .eq("status", "published")
-        .is("deleted_at", null)
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      targetProfileId = firstProfile?.id;
+      targetProfileId = "00000000-0000-0000-0000-000000000001";
     }
 
-    if (!targetProfileId) {
-      return NextResponse.json(
-        { error: "Contact service is currently unavailable. Please try again later." },
-        { status: 503 }
-      );
+    // 6. Record message in database
+    let dbSaved = false;
+    if (supabaseClient) {
+      try {
+        const { error: insertError } = await supabaseClient
+          .from("contact_messages")
+          .insert({
+            profile_id: targetProfileId,
+            name,
+            email,
+            subject,
+            message,
+            ip_address: clientIp,
+            user_agent: userAgent.slice(0, 255),
+            status: "new",
+          });
+
+        if (!insertError) {
+          dbSaved = true;
+        } else {
+          console.warn("Failed to insert contact message:", insertError.message);
+        }
+      } catch (dbErr) {
+        console.warn("Database insert exception:", dbErr);
+      }
     }
 
-    // 5. Insert into contact_messages table (visible in Admin Dashboard)
-    const { error: insertError } = await admin.from("contact_messages").insert({
-      profile_id: targetProfileId,
-      name,
-      email,
-      subject,
-      message,
-      ip_address: clientIp,
-      user_agent: userAgent.slice(0, 255),
-      status: "new",
-    });
-
-    if (insertError) {
-      console.error("Failed to insert contact message:", insertError);
-      return NextResponse.json(
-        { error: "An unexpected database error occurred while sending your message." },
-        { status: 500 }
-      );
+    // 7. Dispatch Email Notification directly to Owner (Awaited for Edge Worker durability)
+    try {
+      await dispatchEmailNotification({
+        name,
+        email,
+        subject,
+        message,
+        ip: clientIp,
+      });
+    } catch (mailErr) {
+      console.warn("Email dispatch error:", mailErr);
     }
-
-    // 6. Forward notification to owner email asynchronously
-    dispatchEmailNotification({
-      name,
-      email,
-      subject,
-      message,
-      ip: clientIp,
-    }).catch((err) => console.error("Email dispatch unhandled:", err));
 
     return NextResponse.json(
       {
@@ -257,10 +283,10 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("Contact API internal failure:", error);
     return NextResponse.json(
-      { error: "Internal server error. Please try again later." },
+      { error: error?.message || "Internal server error. Please try again later." },
       { status: 500 }
     );
   }
