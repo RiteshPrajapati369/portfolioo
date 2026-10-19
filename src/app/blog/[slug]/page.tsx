@@ -6,6 +6,7 @@ import { ContentService } from "@/lib/services";
 import { Navbar } from "@/components/sections/navbar";
 import { Footer } from "@/components/sections/footer";
 import { formatDate } from "@/lib/utils";
+import { MarkdownContent } from "@/components/blog/markdown-content";
 
 export const dynamic = "force-dynamic";
 
@@ -107,38 +108,9 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             </div>
           )}
 
-          {/* Post Content */}
+          {/* Post Content with PoC Markdown & Image Rendering */}
           <div className="pt-6 border-t border-border">
-            <div className="space-y-6 text-foreground leading-relaxed font-sans text-base">
-              {post.content.split("\n\n").map((paragraph, index) => {
-                if (paragraph.startsWith("# ")) {
-                  return (
-                    <h2 key={index} className="text-2xl font-bold text-foreground pt-4">
-                      {paragraph.replace("# ", "")}
-                    </h2>
-                  );
-                }
-                if (paragraph.startsWith("## ")) {
-                  return (
-                    <h3 key={index} className="text-xl font-bold text-foreground pt-3">
-                      {paragraph.replace("## ", "")}
-                    </h3>
-                  );
-                }
-                if (paragraph.startsWith("### ")) {
-                  return (
-                    <h4 key={index} className="text-lg font-bold text-foreground pt-2">
-                      {paragraph.replace("### ", "")}
-                    </h4>
-                  );
-                }
-                return (
-                  <p key={index} className="text-muted-foreground leading-relaxed font-normal">
-                    {paragraph}
-                  </p>
-                );
-              })}
-            </div>
+            <MarkdownContent content={post.content} />
           </div>
         </article>
       </main>

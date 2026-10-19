@@ -52,43 +52,21 @@ export default function ProjectsDashboardPage() {
 
   const loadData = async () => {
     setIsLoading(true);
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    let p: Profile | null = null;
-    if (user) {
-      setUserId(user.id);
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      p = data;
+    try {
+      const res = await fetch("/api/dashboard/projects", {
+        headers: { "Cache-Control": "no-cache" },
+      });
+      const data = (await res.json()) as any;
+      if (res.ok && data.projects) {
+        setProjects(data.projects);
+      } else {
+        feedback.error("Failed to load projects", data.error || "Could not retrieve projects.");
+      }
+    } catch (err: any) {
+      feedback.error("Connection Error", err?.message || "Failed to contact dashboard API.");
+    } finally {
+      setIsLoading(false);
     }
-
-    if (!p) {
-      const { data: firstProfile } = await supabase
-        .from("profiles")
-        .select("*")
-        .limit(1)
-        .maybeSingle();
-      p = firstProfile;
-    }
-
-    if (p) {
-      setProfile(p);
-      const { data: projs } = await supabase
-        .from("projects")
-        .select("*")
-        .eq("profile_id", p.id)
-        .is("deleted_at", null)
-        .order("sort_order", { ascending: true });
-
-      setProjects(projs || []);
-    }
-    setIsLoading(false);
   };
 
   useEffect(() => {
@@ -139,35 +117,46 @@ export default function ProjectsDashboardPage() {
 
   const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !userId) return;
+    if (!file) return;
 
     setIsUploading(true);
     try {
-      const res = await uploadFile("projects", file, userId);
-      if (res.error) {
-        feedback.error("Upload Error", res.error);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("bucket", "projects");
+
+      const res = await fetch("/api/dashboard/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = (await res.json()) as any;
+      if (!res.ok || data.error) {
+        feedback.error("Upload Error", data.error || "Could not upload image.");
       } else {
-        setThumbnailUrl(res.url);
+        setThumbnailUrl(data.url);
         feedback.success("Image Uploaded", "Thumbnail has been attached.");
       }
+    } catch (err: any) {
+      feedback.error("Upload Error", err?.message || "Network error during upload.");
     } finally {
       setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile?.id) {
-      feedback.error("Profile Not Found", "Please configure your profile first.");
+
+    if (!title.trim() || !slug.trim() || !description.trim()) {
+      feedback.error("Required Fields Missing", "Please fill in title, slug, and description.");
       return;
     }
 
     setIsSaving(true);
-    const supabase = createClient();
-
     try {
       const payload = {
-        profile_id: profile.id,
+        id: editingId || undefined,
         title: title.trim(),
         slug: slug.trim(),
         description: description.trim(),
@@ -178,25 +167,25 @@ export default function ProjectsDashboardPage() {
         thumbnail_url: thumbnailUrl,
         status,
         sort_order: sortOrder,
-        updated_at: new Date().toISOString(),
       };
 
-      if (editingId) {
-        const { error } = await supabase
-          .from("projects")
-          .update(payload)
-          .eq("id", editingId);
+      const res = await fetch("/api/dashboard/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-        if (error) throw error;
-        feedback.success("Project Updated", "Project and architecture details saved.");
+      const data = (await res.json()) as any;
+      if (!res.ok || data.error) {
+        feedback.error("Save Failed", data.error || "Could not save project.");
       } else {
-        const { error } = await supabase.from("projects").insert(payload);
-        if (error) throw error;
-        feedback.success("Project Created", "New security project added.");
+        feedback.success(
+          editingId ? "Project Updated" : "Project Created",
+          "Project and architecture details saved."
+        );
+        setIsEditing(false);
+        await loadData();
       }
-
-      setIsEditing(false);
-      await loadData();
     } catch (err: any) {
       feedback.error("Save Failed", err?.message || "Could not save project.");
     } finally {
@@ -204,19 +193,21 @@ export default function ProjectsDashboardPage() {
     }
   };
 
-  const handleDelete = async (id: string, title: string) => {
-    if (!confirm(`Are you sure you want to delete "${title}"?`)) return;
+  const handleDelete = async (id: string, projectTitle: string) => {
+    if (!confirm(`Are you sure you want to delete "${projectTitle}"?`)) return;
 
-    const supabase = createClient();
     try {
-      const { error } = await supabase
-        .from("projects")
-        .update({ deleted_at: new Date().toISOString() })
-        .eq("id", id);
+      const res = await fetch(`/api/dashboard/projects?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      const data = (await res.json()) as any;
 
-      if (error) throw error;
-      feedback.success("Project Deleted", `"${title}" has been removed.`);
-      await loadData();
+      if (!res.ok || data.error) {
+        feedback.error("Delete Failed", data.error || "Could not delete project.");
+      } else {
+        feedback.success("Project Deleted", `"${projectTitle}" has been removed.`);
+        await loadData();
+      }
     } catch (err: any) {
       feedback.error("Delete Failed", err?.message || "Could not delete project.");
     }

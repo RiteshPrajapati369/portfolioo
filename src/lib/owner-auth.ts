@@ -210,3 +210,13 @@ export function clearOwnerSessionCookie() {
     maxAge: 0,
   });
 }
+
+export function hasOwnerSession(): boolean {
+  try {
+    const cookieStore = cookies();
+    const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    return verifyOwnerSessionToken(token);
+  } catch {
+    return false;
+  }
+}
