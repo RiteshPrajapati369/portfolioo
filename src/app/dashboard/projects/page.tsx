@@ -14,6 +14,9 @@ import {
   Github,
   Loader2,
   ShieldAlert,
+  Layers,
+  CheckCircle2,
+  Eye,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase-browser";
 import { uploadFile } from "@/lib/storage";
@@ -31,11 +34,13 @@ export default function ProjectsDashboardPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [previewProject, setPreviewProject] = useState<Project | null>(null);
 
   // Form Fields
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
+  const [content, setContent] = useState("");
   const [category, setCategory] = useState("Security Engineering");
   const [githubUrl, setGithubUrl] = useState("");
   const [liveUrl, setLiveUrl] = useState("");
@@ -95,6 +100,7 @@ export default function ProjectsDashboardPage() {
     setTitle("");
     setSlug("");
     setDescription("");
+    setContent("");
     setCategory("Security Engineering");
     setGithubUrl("");
     setLiveUrl("");
@@ -109,6 +115,7 @@ export default function ProjectsDashboardPage() {
     setTitle(p.title);
     setSlug(p.slug);
     setDescription(p.description);
+    setContent(p.content || "");
     setCategory(p.category);
     setGithubUrl(p.github_url || "");
     setLiveUrl(p.live_url || "");
@@ -164,6 +171,7 @@ export default function ProjectsDashboardPage() {
         title: title.trim(),
         slug: slug.trim(),
         description: description.trim(),
+        content: content.trim() || null,
         category: category.trim(),
         github_url: githubUrl.trim() || null,
         live_url: liveUrl.trim() || null,
@@ -180,7 +188,7 @@ export default function ProjectsDashboardPage() {
           .eq("id", editingId);
 
         if (error) throw error;
-        feedback.success("Project Updated", "Project details saved.");
+        feedback.success("Project Updated", "Project and architecture details saved.");
       } else {
         const { error } = await supabase.from("projects").insert(payload);
         if (error) throw error;
@@ -232,7 +240,7 @@ export default function ProjectsDashboardPage() {
             Security Projects & Case Studies
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground font-mono mt-1">
-            Manage IDS/IPS deployments, security audits, and penetration testing projects
+            Manage projects, system architectures, and defense writeups displayed on your portfolio
           </p>
         </div>
 
@@ -250,7 +258,7 @@ export default function ProjectsDashboardPage() {
         <div className="rounded-2xl border-2 border-primary/40 bg-card p-6 sm:p-8 space-y-6 shadow-md animate-in fade-in duration-200">
           <div className="flex items-center justify-between border-b border-border pb-4">
             <h2 className="font-mono font-bold text-base text-foreground">
-              {editingId ? "Edit Project" : "New Security Project"}
+              {editingId ? "Edit Project & Architecture" : "New Security Project"}
             </h2>
             <button
               onClick={() => setIsEditing(false)}
@@ -289,15 +297,36 @@ export default function ProjectsDashboardPage() {
 
             <div className="space-y-1.5">
               <label className="text-xs font-mono font-medium text-foreground">
-                Description *
+                Card Description (Summary on Homepage) *
               </label>
               <textarea
-                rows={3}
+                rows={2}
                 required
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="High-level security summary..."
                 className="w-full px-4 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm font-sans focus:border-primary focus:outline-none resize-y"
+              />
+            </div>
+
+            {/* Architecture & Research Writeup */}
+            <div className="space-y-1.5 pt-2 border-t border-border">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-mono font-medium text-foreground flex items-center gap-1.5">
+                  <Layers className="w-4 h-4 text-primary" />
+                  <span>Architecture & Technical Writeup (Shown when clicking &quot;View Architecture&quot;)</span>
+                </label>
+                <span className="text-[11px] font-mono text-muted-foreground">Markdown bullet points supported</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Detail the operational flow, packet analysis, threat vectors mitigated, and technical defense controls.
+              </p>
+              <textarea
+                rows={7}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder={`### System Architecture & Operational Pipeline\n\n- **Packet Ingestion:** Deployed raw socket sniffer utilizing Libpcap...\n- **Rule Matching:** Configured custom Snort & Suricata rule matrices...\n- **Defense Actions:** Automated dynamic firewall iptables dropping...`}
+                className="w-full px-4 py-2.5 rounded-xl bg-background border border-border text-foreground font-mono text-xs focus:border-primary focus:outline-none resize-y leading-relaxed"
               />
             </div>
 
@@ -407,7 +436,7 @@ export default function ProjectsDashboardPage() {
                 className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary text-primary-foreground font-mono text-xs font-semibold uppercase tracking-wider hover:opacity-90"
               >
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                <span>Save Project</span>
+                <span>Save Project & Architecture</span>
               </button>
             </div>
           </form>
@@ -427,25 +456,43 @@ export default function ProjectsDashboardPage() {
               key={p.id}
               className="p-5 rounded-2xl border border-border bg-card/60 flex flex-col justify-between space-y-4 hover:border-primary/40 transition-colors"
             >
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-background border border-border text-primary uppercase">
                     {p.category}
                   </span>
-                  <span
-                    className={`text-[10px] font-mono px-2 py-0.5 rounded ${
-                      p.status === "published"
-                        ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {p.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded ${
+                        p.status === "published"
+                          ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {p.status}
+                    </span>
+                  </div>
                 </div>
+
                 <h3 className="font-mono font-bold text-base text-foreground">{p.title}</h3>
                 <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                   {p.description}
                 </p>
+
+                {/* Architecture writeup status */}
+                <div className="pt-1">
+                  {p.content ? (
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Architecture Documented ({p.content.length} chars)</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md">
+                      <Layers className="w-3 h-3" />
+                      <span>No architecture writeup yet</span>
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="pt-3 border-t border-border flex items-center justify-between">
@@ -474,6 +521,14 @@ export default function ProjectsDashboardPage() {
 
                 <div className="flex items-center gap-2">
                   <button
+                    onClick={() => setPreviewProject(p)}
+                    className="p-1.5 rounded-lg border border-border bg-background hover:bg-card text-muted-foreground hover:text-foreground flex items-center gap-1 text-[11px] font-mono px-2"
+                    title="Preview Architecture"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-primary" />
+                    <span>Preview</span>
+                  </button>
+                  <button
                     onClick={() => openEditForm(p)}
                     className="p-1.5 rounded-lg border border-border bg-background hover:bg-card text-muted-foreground hover:text-foreground"
                     title="Edit project"
@@ -491,6 +546,54 @@ export default function ProjectsDashboardPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Admin Architecture Quick Preview Modal */}
+      {previewProject && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in"
+          onClick={() => setPreviewProject(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-2xl max-h-[85vh] bg-card border border-border rounded-2xl shadow-xl flex flex-col overflow-hidden"
+          >
+            <div className="p-5 border-b border-border flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-mono text-primary uppercase font-bold">
+                  {previewProject.category}
+                </span>
+                <h3 className="font-mono font-bold text-lg text-foreground">
+                  {previewProject.title} — Architecture Preview
+                </h3>
+              </div>
+              <button
+                onClick={() => setPreviewProject(null)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto space-y-4 font-mono text-xs leading-relaxed text-muted-foreground">
+              <div className="p-3 bg-background rounded-xl border border-border text-foreground">
+                <p className="font-sans text-sm">{previewProject.description}</p>
+              </div>
+              <div className="space-y-2 whitespace-pre-wrap font-sans text-sm p-4 bg-background rounded-xl border border-border text-foreground/90">
+                {previewProject.content || "No architecture writeup configured yet. Click 'Edit' to add one."}
+              </div>
+            </div>
+            <div className="p-4 border-t border-border flex justify-end">
+              <button
+                onClick={() => setPreviewProject(null)}
+                className="px-4 py-2 rounded-xl bg-primary text-primary-foreground font-mono text-xs uppercase"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

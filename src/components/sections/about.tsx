@@ -146,7 +146,7 @@ export function About({ profile, skills, services }: AboutProps) {
           </div>
         </div>
 
-        {/* 2. Technical Skills Grid */}
+        {/* 2. Technical Skills Grid (Clean technical display without percentages or progress bars) */}
         <div className="space-y-6 pt-10 border-t border-border/80">
           <div className="flex items-center justify-between border-b border-border pb-3">
             <h3 className="text-xl font-bold text-foreground flex items-center gap-2.5">
@@ -154,7 +154,7 @@ export function About({ profile, skills, services }: AboutProps) {
               <span>Technical Skills</span>
             </h3>
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Proficiency & Specialization
+              Domains & Competencies
             </span>
           </div>
 
@@ -163,40 +163,31 @@ export function About({ profile, skills, services }: AboutProps) {
               No skills registered yet.
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {skills.map((skill) => {
                 const IconComponent = getTechIcon(skill.name);
                 return (
                   <div
                     key={skill.id}
-                    className="p-5 rounded-2xl border border-border bg-card/70 hover:bg-card hover:border-primary/50 transition-all duration-200 flex flex-col justify-between space-y-4 group shadow-sm"
+                    className="p-4 sm:p-5 rounded-2xl border border-border bg-card/70 hover:bg-card hover:border-primary/50 transition-all duration-200 flex items-center justify-between group shadow-sm"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-background border border-border flex items-center justify-center text-primary group-hover:border-primary/60 transition-colors shadow-xs">
-                          <IconComponent className="w-5 h-5" />
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-11 h-11 rounded-xl bg-background border border-border flex items-center justify-center text-primary group-hover:border-primary/60 transition-colors shadow-xs shrink-0">
+                        <IconComponent className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
+                          {skill.name}
                         </div>
-                        <div>
-                          <div className="font-semibold text-sm text-foreground">
-                            {skill.name}
-                          </div>
-                          <div className="text-xs font-medium text-muted-foreground">
-                            {skill.category}
-                          </div>
+                        <div className="text-xs font-medium text-muted-foreground mt-0.5">
+                          {skill.category}
                         </div>
                       </div>
-                      <span className="text-xs font-bold text-primary">
-                        {skill.proficiency}%
-                      </span>
                     </div>
 
-                    {/* Progress Bar */}
-                    <div className="w-full bg-background rounded-full h-2 overflow-hidden border border-border/60">
-                      <div
-                        className="bg-primary h-full rounded-full transition-all duration-500 opacity-90 group-hover:opacity-100"
-                        style={{ width: `${skill.proficiency}%` }}
-                      />
-                    </div>
+                    <span className="px-2.5 py-1 rounded-md bg-background border border-border/70 text-[11px] font-mono text-muted-foreground/80 group-hover:text-primary transition-colors shrink-0">
+                      Active
+                    </span>
                   </div>
                 );
               })}

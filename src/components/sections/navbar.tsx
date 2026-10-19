@@ -40,11 +40,11 @@ export function Navbar({ navLinks = [], profileName = "Ritesh Prajapati" }: Navb
           : "bg-transparent py-5"
       }`}
     >
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
-        {/* Brand / Logo */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 relative flex items-center justify-between">
+        {/* Brand / Logo (Far Left) */}
         <Link
           href="/#hero"
-          className="group flex items-center gap-2.5 text-foreground hover:text-primary transition-colors tracking-tight"
+          className="group flex items-center gap-2.5 text-foreground hover:text-primary transition-colors tracking-tight z-10"
         >
           <div className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-primary group-hover:border-primary transition-colors">
             <Shield className="w-4 h-4" />
@@ -59,21 +59,24 @@ export function Navbar({ navLinks = [], profileName = "Ritesh Prajapati" }: Navb
           </div>
         </Link>
 
-        {/* Right Section: Desktop Nav + Day/Night Toggle + Mobile Hamburger */}
-        <div className="flex items-center gap-3">
-          {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1 bg-card/70 border border-border rounded-full px-5 py-1.5 backdrop-blur-sm shadow-sm">
-            {links.map((link) => (
-              <Link
-                key={link.label}
-                href={link.href}
-                className="text-xs uppercase tracking-wider font-semibold px-4 py-1.5 rounded-full text-foreground/80 hover:text-foreground hover:bg-background/80 transition-all duration-150"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
+        {/* Center: Desktop Navigation Pill (Mathematically Centered) */}
+        <nav
+          aria-label="Main Navigation"
+          className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-1 bg-card/70 border border-border rounded-full px-5 py-1.5 backdrop-blur-sm shadow-sm z-10"
+        >
+          {links.map((link) => (
+            <Link
+              key={link.label}
+              href={link.href}
+              className="text-xs uppercase tracking-wider font-semibold px-4 py-1.5 rounded-full text-foreground/80 hover:text-foreground hover:bg-background/80 transition-all duration-150"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
 
+        {/* Right Section: Day/Night Toggle + Mobile Hamburger (Far Right) */}
+        <div className="flex items-center gap-3 z-10">
           {/* Day / Night Mode Toggle */}
           <ThemeToggle />
 
