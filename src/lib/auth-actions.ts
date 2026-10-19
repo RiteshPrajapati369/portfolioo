@@ -262,32 +262,22 @@ export async function enrollMfa(): Promise<{
   secret?: string;
 }> {
   try {
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.mfa.enroll({
-      factorType: "totp",
-      friendlyName: "Google Authenticator",
-    });
+    const config = getOwnerConfig();
+    const secret = config.totpSecret || "JBSWY3DPEHPK3PXP";
+    const appName = "Ritesh Cybersecurity";
+    const userEmail = "panditritesh005@gmail.com";
 
-    if (error || !data) {
-      return {
-        factorId: "local-totp-factor",
-        qrCode:
-          "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=otpauth%3A%2F%2Ftotp%2FRiteshPortfolio%3Apanditritesh005%40gmail.com%3Fsecret%3DJBSWY3DPEHPK3PXP%26issuer%3DRiteshPortfolio",
-        secret: "JBSWY3DPEHPK3PXP",
-      };
-    }
+    const otpAuthUri = `otpauth://totp/${encodeURIComponent(appName)}:${encodeURIComponent(userEmail)}?secret=${secret}&issuer=${encodeURIComponent(appName)}`;
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(otpAuthUri)}`;
 
     return {
-      factorId: data.id,
-      qrCode: data.totp.qr_code,
-      secret: data.totp.secret,
+      factorId: "local-totp-factor",
+      qrCode: qrCodeUrl,
+      secret,
     };
   } catch {
     return {
-      factorId: "local-totp-factor",
-      qrCode:
-        "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=otpauth%3A%2F%2Ftotp%2FRiteshPortfolio%3Apanditritesh005%40gmail.com%3Fsecret%3DJBSWY3DPEHPK3PXP%26issuer%3DRiteshPortfolio",
-      secret: "JBSWY3DPEHPK3PXP",
+      error: "Failed to initiate MFA enrollment.",
     };
   }
 }
