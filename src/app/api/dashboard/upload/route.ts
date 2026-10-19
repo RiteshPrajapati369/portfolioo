@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   try {
     // 1. Authenticate Owner Session
-    if (!hasOwnerSession()) {
+    if (!hasOwnerSession(request)) {
       return NextResponse.json(
         { error: "Unauthorized. Please log in to the owner dashboard." },
         { status: 401 }

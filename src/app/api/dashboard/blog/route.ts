@@ -7,10 +7,10 @@ export const dynamic = "force-dynamic";
 /**
  * GET: Fetch all blog articles for the dashboard
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    if (!hasOwnerSession()) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!hasOwnerSession(request)) {
+      return NextResponse.json({ error: "Unauthorized. Owner session required." }, { status: 401 });
     }
 
     const admin = createAdminClient();
@@ -36,8 +36,8 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     // 1. Authenticate Owner
-    if (!hasOwnerSession()) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!hasOwnerSession(request)) {
+      return NextResponse.json({ error: "Unauthorized. Owner session required." }, { status: 401 });
     }
 
     const body = (await request.json()) as Record<string, any>;
@@ -53,9 +53,9 @@ export async function POST(request: NextRequest) {
       status = "published",
     } = body;
 
-    if (!title || !slug || !content) {
+    if (!title || !content) {
       return NextResponse.json(
-        { error: "Title, slug, and content are required." },
+        { error: "Title and content are required." },
         { status: 400 }
       );
     }
@@ -71,10 +71,21 @@ export async function POST(request: NextRequest) {
 
     const profileId = profile?.id || "00000000-0000-0000-0000-000000000001";
 
+    // 3. Sanitize slug
+    let cleanSlug = (slug || title)
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9-]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    if (!cleanSlug) {
+      cleanSlug = `article-${Date.now()}`;
+    }
+
     const payload = {
       profile_id: profileId,
       title: title.trim(),
-      slug: slug.trim().toLowerCase(),
+      slug: cleanSlug,
       summary: (summary || "").trim(),
       content: content.trim(),
       reading_time: (reading_time || "5 min read").trim(),
@@ -84,7 +95,7 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    // 3. Update or Insert
+    // 4. Update or Insert
     if (id) {
       const { data, error } = await admin
         .from("blog_posts")
@@ -100,6 +111,17 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({ success: true, post: data });
     } else {
+      // Check for slug collision on new post
+      const { data: existingPost } = await admin
+        .from("blog_posts")
+        .select("id")
+        .eq("slug", cleanSlug)
+        .maybeSingle();
+
+      if (existingPost) {
+        payload.slug = `${cleanSlug}-${Date.now().toString(36)}`;
+      }
+
       const { data, error } = await admin
         .from("blog_posts")
         .insert({
@@ -130,8 +152,8 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    if (!hasOwnerSession()) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!hasOwnerSession(request)) {
+      return NextResponse.json({ error: "Unauthorized. Owner session required." }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);

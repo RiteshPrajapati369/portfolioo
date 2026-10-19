@@ -38,17 +38,13 @@ export default function SecurityDashboardPage() {
       try {
         const isOwnerMfaOn = await getOwnerMfaStatusAction();
         const supabase = createClient();
-        const [{ data: factors }, { data: attempts }] = await Promise.all([
-          supabase.auth.mfa.listFactors(),
-          supabase
-            .from("login_attempts")
-            .select("*")
-            .order("attempt_time", { ascending: false })
-            .limit(15),
-        ]);
+        const { data: attempts } = await supabase
+          .from("login_attempts")
+          .select("*")
+          .order("attempt_time", { ascending: false })
+          .limit(15);
 
-        const hasVerified = factors?.totp?.some((f) => f.status === "verified");
-        setMfaEnrolled(Boolean(isOwnerMfaOn || hasVerified));
+        setMfaEnrolled(Boolean(isOwnerMfaOn));
         setLoginAttempts(attempts || []);
       } catch {
         // Fallback when Supabase is not connected yet

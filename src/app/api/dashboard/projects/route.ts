@@ -4,9 +4,9 @@ import { hasOwnerSession } from "@/lib/owner-auth";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    if (!hasOwnerSession()) {
+    if (!hasOwnerSession(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -29,7 +29,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    if (!hasOwnerSession()) {
+    if (!hasOwnerSession(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    if (!hasOwnerSession()) {
+    if (!hasOwnerSession(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

@@ -24,6 +24,15 @@ import {
   ListOrdered,
   AlertTriangle,
   ExternalLink,
+  Columns,
+  Bold,
+  Italic,
+  Heading2,
+  Heading3,
+  Quote,
+  Link2,
+  FileCode,
+  List,
 } from "lucide-react";
 import { feedback } from "@/lib/feedback";
 import { formatDate } from "@/lib/utils";
@@ -44,10 +53,11 @@ export default function BlogDashboardPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
-  const [isUploadingPoC, setIsUploadingPoC] = useState(false);
+  const [isUploadingInline, setIsUploadingInline] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
 
-  // Editor Tab: "write" or "preview"
-  const [editorTab, setEditorTab] = useState<"write" | "preview">("write");
+  // Editor View Mode: "write" | "split" | "preview"
+  const [editorTab, setEditorTab] = useState<"write" | "split" | "preview">("write");
 
   // Form Fields
   const [title, setTitle] = useState("");
@@ -64,7 +74,7 @@ export default function BlogDashboardPage() {
   const [copiedImageUrl, setCopiedImageUrl] = useState<string | null>(null);
 
   const coverInputRef = useRef<HTMLInputElement>(null);
-  const pocInputRef = useRef<HTMLInputElement>(null);
+  const inlineImageInputRef = useRef<HTMLInputElement>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const loadData = async () => {
@@ -193,38 +203,94 @@ export default function BlogDashboardPage() {
     }, 50);
   };
 
-  // Upload Inline Proof-of-Concept Image (Bugcrowd style)
-  const handlePoCImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Upload inline images and insert markdown tag at cursor
+  const uploadInlineFiles = async (files: FileList | File[]) => {
+    const fileArray = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (fileArray.length === 0) {
+      feedback.info("No Images Found", "Please select or drop image files.");
+      return;
+    }
 
-    setIsUploadingPoC(true);
+    setIsUploadingInline(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("bucket", "blog");
+      for (const file of fileArray) {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("bucket", "blog");
 
-      const res = await fetch("/api/dashboard/upload", {
-        method: "POST",
-        body: formData,
-      });
+        const res = await fetch("/api/dashboard/upload", {
+          method: "POST",
+          body: formData,
+        });
 
-      const data = (await res.json()) as any;
-      if (!res.ok || data.error) {
-        feedback.error("PoC Upload Failed", data.error || "Could not upload PoC image.");
-      } else {
-        const imageName = file.name.replace(/\.[^/.]+$/, "");
-        const markdownTag = `\n\n![Proof of Concept: ${imageName}](${data.url})\n\n`;
+        const data = (await res.json()) as any;
+        if (!res.ok || data.error) {
+          feedback.error("Upload Failed", data.error || `Could not upload ${file.name}`);
+        } else {
+          const imageName = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
+          const markdownTag = `\n\n![Figure: ${imageName}](${data.url})\n\n`;
 
-        insertAtCursor(markdownTag);
-        setPocImages((prev) => [...prev, { name: imageName, url: data.url }]);
-        feedback.success("PoC Image Inserted", "Screenshot uploaded and inserted into article.");
+          insertAtCursor(markdownTag);
+          setPocImages((prev) => [...prev, { name: imageName, url: data.url }]);
+          feedback.success("Image Inserted", `"${file.name}" uploaded and inserted into article.`);
+        }
       }
     } catch (err: any) {
-      feedback.error("Upload Error", err?.message || "Failed to upload PoC image.");
+      feedback.error("Upload Error", err?.message || "Network error while uploading image.");
     } finally {
-      setIsUploadingPoC(false);
-      if (pocInputRef.current) pocInputRef.current.value = "";
+      setIsUploadingInline(false);
+      if (inlineImageInputRef.current) inlineImageInputRef.current.value = "";
+    }
+  };
+
+  // Handle Drag & Drop inside Content Editor
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDraggingOver) setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      await uploadInlineFiles(e.dataTransfer.files);
+    }
+  };
+
+  // Handle Clipboard Paste (Ctrl+V) for screenshots
+  const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    const imageFiles: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.indexOf("image") !== -1) {
+        const file = item.getAsFile();
+        if (file) {
+          // Give pasted screenshot an informative name
+          const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+          const customFile = new File([file], `Poc_Screenshot_${timestamp}.png`, {
+            type: file.type || "image/png",
+          });
+          imageFiles.push(customFile);
+        }
+      }
+    }
+
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      feedback.info("Uploading Screenshot", "Processing pasted image from clipboard...");
+      await uploadInlineFiles(imageFiles);
     }
   };
 
@@ -320,13 +386,13 @@ export default function BlogDashboardPage() {
             Blog & Security Research Notes
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground font-mono mt-1">
-            Write Bugcrowd-style write-ups, vulnerability reports, and step-by-step reproduction notes with inline PoC images
+            Write Bugcrowd-style write-ups, vulnerability reports, and reproduction steps with inline images, drag &amp; drop, and clipboard paste (Ctrl+V)
           </p>
         </div>
 
         <button
           onClick={openNewForm}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-mono text-xs font-semibold uppercase tracking-wider hover:opacity-90 transition-opacity shrink-0 shadow-sm"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-mono text-xs font-semibold uppercase tracking-wider hover:opacity-90 transition-opacity shrink-0 shadow-sm cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>New Write-up / Article</span>
@@ -345,38 +411,54 @@ export default function BlogDashboardPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Write / Preview Tab Switcher */}
+              {/* View Mode Switcher: Write | Split | Preview */}
               <div className="inline-flex rounded-lg border border-border bg-background p-1 text-xs font-mono">
                 <button
                   type="button"
                   onClick={() => setEditorTab("write")}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
                     editorTab === "write"
                       ? "bg-primary text-primary-foreground font-semibold"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
+                  title="Editor Only"
                 >
                   <PenLine className="w-3.5 h-3.5" />
                   <span>Write</span>
                 </button>
                 <button
                   type="button"
+                  onClick={() => setEditorTab("split")}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
+                    editorTab === "split"
+                      ? "bg-primary text-primary-foreground font-semibold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="Side-by-side Editor and Live Preview"
+                >
+                  <Columns className="w-3.5 h-3.5" />
+                  <span>Split View</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => setEditorTab("preview")}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
                     editorTab === "preview"
                       ? "bg-primary text-primary-foreground font-semibold"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
+                  title="Full Live Preview"
                 >
                   <Eye className="w-3.5 h-3.5" />
-                  <span>Live Preview</span>
+                  <span>Preview</span>
                 </button>
               </div>
 
               <button
                 type="button"
                 onClick={() => setIsEditing(false)}
-                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground border border-transparent hover:border-border"
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground border border-transparent hover:border-border cursor-pointer"
+                title="Close Editor"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -430,45 +512,132 @@ export default function BlogDashboardPage() {
               />
             </div>
 
-            {/* Content Area with Bugcrowd-Style PoC Image Inserter */}
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
+            {/* Content Area with Rich Formatting & Inline Image Support */}
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2.5">
                 <label className="text-xs font-mono font-semibold text-foreground flex items-center gap-1.5">
                   <BookOpen className="w-4 h-4 text-primary" />
-                  <span>Article Content & Reproduction Steps *</span>
+                  <span>Article Content &amp; Reproduction Steps *</span>
                 </label>
 
-                {/* Bugcrowd Action Toolbar */}
-                <div className="flex flex-wrap items-center gap-2">
-                  {/* Inline PoC Image Uploader */}
+                {/* Rich Markdown Toolbar */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {/* Inline Image Upload File Input */}
                   <input
-                    ref={pocInputRef}
+                    ref={inlineImageInputRef}
                     type="file"
                     accept="image/*"
-                    onChange={handlePoCImageUpload}
+                    multiple
+                    onChange={(e) => {
+                      if (e.target.files) uploadInlineFiles(e.target.files);
+                    }}
                     className="hidden"
                   />
+
+                  {/* Primary "Upload & Insert Image" button */}
                   <button
                     type="button"
-                    onClick={() => pocInputRef.current?.click()}
-                    disabled={isUploadingPoC}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/30 text-primary text-xs font-mono font-semibold hover:bg-primary/20 transition-colors shadow-2xs cursor-pointer"
-                    title="Upload screenshot and insert markdown tag at cursor"
+                    onClick={() => inlineImageInputRef.current?.click()}
+                    disabled={isUploadingInline}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-mono font-semibold hover:opacity-90 transition-opacity cursor-pointer shadow-xs disabled:opacity-50"
+                    title="Upload image(s) from computer or screenshot"
                   >
-                    {isUploadingPoC ? (
+                    {isUploadingInline ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
                       <ImagePlus className="w-3.5 h-3.5" />
                     )}
-                    <span>{isUploadingPoC ? "Uploading PoC..." : "Insert PoC Screenshot"}</span>
+                    <span>{isUploadingInline ? "Uploading Image..." : "Upload & Insert Image"}</span>
                   </button>
 
-                  {/* Quick-insert Bugcrowd templates */}
+                  <div className="h-4 w-px bg-border mx-1" />
+
+                  {/* Quick Formatting Buttons */}
                   <button
                     type="button"
-                    onClick={() => insertAtCursor("\n\n### Step: [Vulnerability Action]\n1. Navigate to target endpoint...\n2. Intercept the request with Burp Suite...\n\n")}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border bg-background hover:bg-card text-muted-foreground hover:text-foreground text-xs font-mono"
-                    title="Insert step template"
+                    onClick={() => insertAtCursor("## ")}
+                    className="p-1.5 rounded-lg border border-border bg-background hover:bg-card text-muted-foreground hover:text-foreground text-xs cursor-pointer"
+                    title="Heading 2 (##)"
+                  >
+                    <Heading2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor("### ")}
+                    className="p-1.5 rounded-lg border border-border bg-background hover:bg-card text-muted-foreground hover:text-foreground text-xs cursor-pointer"
+                    title="Heading 3 (###)"
+                  >
+                    <Heading3 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor("**Bold Text**")}
+                    className="p-1.5 rounded-lg border border-border bg-background hover:bg-card text-muted-foreground hover:text-foreground text-xs cursor-pointer"
+                    title="Bold (**text**)"
+                  >
+                    <Bold className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor("*Italic Text*")}
+                    className="p-1.5 rounded-lg border border-border bg-background hover:bg-card text-muted-foreground hover:text-foreground text-xs cursor-pointer"
+                    title="Italic (*text*)"
+                  >
+                    <Italic className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor("`code`")}
+                    className="p-1.5 rounded-lg border border-border bg-background hover:bg-card text-muted-foreground hover:text-foreground text-xs cursor-pointer"
+                    title="Inline Code (`code`)"
+                  >
+                    <Code className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor("\n```bash\n# Terminal Command\ncurl -i https://target.com\n```\n")}
+                    className="p-1.5 rounded-lg border border-border bg-background hover:bg-card text-muted-foreground hover:text-foreground text-xs cursor-pointer"
+                    title="Code Block"
+                  >
+                    <FileCode className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor("\n> **Security Impact:** \n")}
+                    className="p-1.5 rounded-lg border border-border bg-background hover:bg-card text-muted-foreground hover:text-foreground text-xs cursor-pointer"
+                    title="Callout / Quote (>)"
+                  >
+                    <Quote className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor("\n- Item 1\n- Item 2\n")}
+                    className="p-1.5 rounded-lg border border-border bg-background hover:bg-card text-muted-foreground hover:text-foreground text-xs cursor-pointer"
+                    title="Bullet List (-)"
+                  >
+                    <List className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertAtCursor("[Link Title](https://example.com)")}
+                    className="p-1.5 rounded-lg border border-border bg-background hover:bg-card text-muted-foreground hover:text-foreground text-xs cursor-pointer"
+                    title="Hyperlink"
+                  >
+                    <Link2 className="w-3.5 h-3.5" />
+                  </button>
+
+                  <div className="h-4 w-px bg-border mx-1" />
+
+                  {/* Bugcrowd Structured Templates */}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      insertAtCursor(
+                        "\n\n### Step: [Vulnerability Action]\n1. Navigate to target endpoint...\n2. Intercept the request with Burp Suite...\n\n"
+                      )
+                    }
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border bg-background hover:bg-card text-muted-foreground hover:text-foreground text-xs font-mono cursor-pointer"
+                    title="Insert step-by-step reproduction block"
                   >
                     <ListOrdered className="w-3.5 h-3.5 text-primary" />
                     <span>+ Step</span>
@@ -476,44 +645,114 @@ export default function BlogDashboardPage() {
 
                   <button
                     type="button"
-                    onClick={() => insertAtCursor("\n\n```http\nPOST /api/v1/user/reset HTTP/1.1\nHost: target.com\nContent-Type: application/json\n\n{\"email\": \"victim@target.com\"}\n```\n\n")}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border bg-background hover:bg-card text-muted-foreground hover:text-foreground text-xs font-mono"
-                    title="Insert HTTP request snippet"
+                    onClick={() =>
+                      insertAtCursor(
+                        '\n\n```http\nPOST /api/v1/auth/reset HTTP/1.1\nHost: target.com\nContent-Type: application/json\n\n{"email": "victim@target.com"}\n```\n\n'
+                      )
+                    }
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border bg-background hover:bg-card text-muted-foreground hover:text-foreground text-xs font-mono cursor-pointer"
+                    title="Insert raw HTTP request snippet"
                   >
                     <Code className="w-3.5 h-3.5 text-primary" />
-                    <span>+ Code / HTTP</span>
+                    <span>+ HTTP</span>
                   </button>
                 </div>
               </div>
 
-              {/* View Switcher: Write Mode vs Live Preview Mode */}
-              {editorTab === "write" ? (
-                <div className="space-y-2">
-                  <textarea
-                    ref={contentTextareaRef}
-                    rows={14}
-                    required
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    placeholder={`# Title\n\n### Vulnerability Description\nExplain the security flaw found in the system...\n\n### Steps to Reproduce (Bugcrowd Style)\n1. Navigate to vulnerable target endpoint.\n2. Supply crafted payload in parameter.\n\n![Proof of Concept - Burp Intercept](https://...url...)\n\n### Security Impact & Remediation\nDescribe how engineers can patch this issue...`}
-                    className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground font-mono text-xs sm:text-sm focus:border-primary focus:outline-none resize-y leading-relaxed font-normal"
-                  />
-                  <p className="text-[11px] text-muted-foreground font-mono flex items-center justify-between">
-                    <span>Write text &bull; Click &quot;Insert PoC Screenshot&quot; &bull; Write more text &bull; Toggle &quot;Live Preview&quot; above to inspect.</span>
-                    <span>{content.length} chars</span>
-                  </p>
-                </div>
-              ) : (
-                <div className="p-6 rounded-xl bg-background border border-border min-h-[350px] max-h-[600px] overflow-y-auto">
-                  {content.trim() ? (
-                    <MarkdownContent content={content} />
-                  ) : (
-                    <div className="text-center py-12 text-muted-foreground font-mono text-xs italic">
-                      No content written yet. Switch to &quot;Write&quot; mode to author your reproduction steps and insert PoC screenshots.
+              {/* Drag and Drop Zone Container */}
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`relative rounded-xl transition-all ${
+                  isDraggingOver
+                    ? "ring-2 ring-primary ring-offset-2 ring-offset-background bg-primary/5"
+                    : ""
+                }`}
+              >
+                {/* Drag Overlay Notice */}
+                {isDraggingOver && (
+                  <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-card/90 backdrop-blur-sm rounded-xl border-2 border-dashed border-primary p-6 text-center pointer-events-none">
+                    <ImagePlus className="w-12 h-12 text-primary animate-bounce mb-2" />
+                    <p className="font-mono text-sm font-bold text-foreground">
+                      Drop Image Here
+                    </p>
+                    <p className="font-mono text-xs text-muted-foreground mt-1">
+                      It will be uploaded and inserted into the article automatically
+                    </p>
+                  </div>
+                )}
+
+                {/* View 1: Write (Full editor) */}
+                {editorTab === "write" && (
+                  <div className="space-y-2">
+                    <textarea
+                      ref={contentTextareaRef}
+                      rows={16}
+                      required
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      onPaste={handlePaste}
+                      placeholder={`# Title\n\n### Vulnerability Overview\nExplain the security flaw found in the system...\n\n### Steps to Reproduce (Bugcrowd Style)\n1. Navigate to target endpoint.\n2. Intercept with Burp Suite.\n\n![Figure: Burp Intercept Screenshot](https://...url...)\n\n3. Notice the unauthorized token in the response.\n\n### Impact & Remediation\nDescribe how engineers can patch this issue...`}
+                      className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground font-mono text-xs sm:text-sm focus:border-primary focus:outline-none resize-y leading-relaxed font-normal"
+                    />
+                    <div className="flex flex-wrap items-center justify-between text-[11px] text-muted-foreground font-mono">
+                      <span>
+                        Tip: Drag &amp; drop images directly into the box, or paste screenshots from clipboard (Ctrl+V).
+                      </span>
+                      <span>{content.length} characters</span>
                     </div>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
+
+                {/* View 2: Split View (Side-by-side Editor & Live Preview) */}
+                {editorTab === "split" && (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider mb-1">
+                        Markdown Source
+                      </div>
+                      <textarea
+                        ref={contentTextareaRef}
+                        rows={18}
+                        required
+                        value={content}
+                        onChange={(e) => setContent(e.target.value)}
+                        onPaste={handlePaste}
+                        placeholder="Write markdown here... images will preview on the right"
+                        className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground font-mono text-xs sm:text-sm focus:border-primary focus:outline-none resize-y leading-relaxed"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider mb-1">
+                        Live Rendered Preview
+                      </div>
+                      <div className="p-5 rounded-xl bg-background border border-border h-[430px] overflow-y-auto">
+                        {content.trim() ? (
+                          <MarkdownContent content={content} />
+                        ) : (
+                          <div className="text-center py-12 text-muted-foreground font-mono text-xs italic">
+                            Live preview will appear here as you type or drop images.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* View 3: Full Live Preview */}
+                {editorTab === "preview" && (
+                  <div className="p-6 sm:p-8 rounded-xl bg-background border border-border min-h-[380px] max-h-[650px] overflow-y-auto">
+                    {content.trim() ? (
+                      <MarkdownContent content={content} />
+                    ) : (
+                      <div className="text-center py-12 text-muted-foreground font-mono text-xs italic">
+                        No content written yet. Switch to &quot;Write&quot; mode to author your reproduction steps and insert PoC screenshots.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Uploaded PoC Screenshots Gallery */}
               {pocImages.length > 0 && (
@@ -521,9 +760,11 @@ export default function BlogDashboardPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-mono font-semibold text-foreground flex items-center gap-1.5">
                       <ImagePlus className="w-3.5 h-3.5 text-primary" />
-                      <span>PoC Screenshots in this Article ({pocImages.length})</span>
+                      <span>Article Images ({pocImages.length})</span>
                     </span>
-                    <span className="text-[11px] font-mono text-muted-foreground">Click &quot;Insert&quot; to place image tag at cursor</span>
+                    <span className="text-[11px] font-mono text-muted-foreground">
+                      Click &quot;Insert Tag&quot; to place image markdown at cursor
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -541,19 +782,19 @@ export default function BlogDashboardPage() {
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
-                            onClick={() => insertAtCursor(`\n\n![${img.name}](${img.url})\n\n`)}
-                            className="w-full py-1 rounded bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-mono font-semibold transition-colors"
+                            onClick={() => insertAtCursor(`\n\n![Figure: ${img.name}](${img.url})\n\n`)}
+                            className="w-full py-1 rounded bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-mono font-semibold transition-colors cursor-pointer"
                           >
                             Insert Tag
                           </button>
                           <button
                             type="button"
                             onClick={() => {
-                              navigator.clipboard.writeText(`![${img.name}](${img.url})`);
+                              navigator.clipboard.writeText(`![Figure: ${img.name}](${img.url})`);
                               setCopiedImageUrl(img.url);
                               setTimeout(() => setCopiedImageUrl(null), 2000);
                             }}
-                            className="p-1 rounded border border-border hover:bg-background text-muted-foreground hover:text-foreground"
+                            className="p-1 rounded border border-border hover:bg-background text-muted-foreground hover:text-foreground cursor-pointer"
                             title="Copy Markdown"
                           >
                             {copiedImageUrl === img.url ? (
@@ -613,7 +854,7 @@ export default function BlogDashboardPage() {
               </div>
             </div>
 
-            {/* Optional Cover Photo Upload */}
+            {/* Optional Header Cover Photo Upload */}
             <div className="space-y-2 pt-2 border-t border-border">
               <label className="text-xs font-mono font-medium text-foreground">
                 Header Cover Photo (Optional)
@@ -630,7 +871,7 @@ export default function BlogDashboardPage() {
                   type="button"
                   onClick={() => coverInputRef.current?.click()}
                   disabled={isUploadingCover}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-background hover:bg-card text-xs font-mono text-foreground cursor-pointer"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-background hover:bg-card text-xs font-mono text-foreground cursor-pointer disabled:opacity-50"
                 >
                   {isUploadingCover ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
@@ -650,14 +891,14 @@ export default function BlogDashboardPage() {
               <button
                 type="button"
                 onClick={() => setIsEditing(false)}
-                className="px-5 py-2.5 rounded-xl border border-border text-xs font-mono hover:bg-background"
+                className="px-5 py-2.5 rounded-xl border border-border text-xs font-mono hover:bg-background cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSaving}
-                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary text-primary-foreground font-mono text-xs font-semibold uppercase tracking-wider hover:opacity-90 transition-opacity shadow-sm"
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary text-primary-foreground font-mono text-xs font-semibold uppercase tracking-wider hover:opacity-90 transition-opacity shadow-sm cursor-pointer disabled:opacity-50"
               >
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 <span>{editingId ? "Update Write-up" : "Publish Write-up"}</span>
@@ -738,14 +979,14 @@ export default function BlogDashboardPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => openEditForm(post)}
-                    className="p-1.5 rounded-lg border border-border bg-background hover:bg-card text-muted-foreground hover:text-foreground"
+                    className="p-1.5 rounded-lg border border-border bg-background hover:bg-card text-muted-foreground hover:text-foreground cursor-pointer"
                     title="Edit article"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => handleDelete(post.id, post.title)}
-                    className="p-1.5 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20"
+                    className="p-1.5 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20 cursor-pointer"
                     title="Delete article"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
