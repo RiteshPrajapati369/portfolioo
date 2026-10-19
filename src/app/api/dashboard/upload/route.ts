@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     // 2. Parse Multipart Form Data
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
-    const bucket = (formData.get("bucket") as string) || "blog";
+    const bucket = (formData.get("bucket") as string) || "projects";
 
     if (!file) {
       return NextResponse.json(
@@ -26,11 +26,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check file size (e.g., max 15MB)
-    const MAX_FILE_SIZE = 15 * 1024 * 1024;
+    // Check file size (max 20MB)
+    const MAX_FILE_SIZE = 20 * 1024 * 1024;
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { error: "File exceeds maximum size limit (15MB)." },
+        { error: "File exceeds maximum size limit (20MB)." },
         { status: 400 }
       );
     }
@@ -38,23 +38,42 @@ export async function POST(request: NextRequest) {
     // 3. Prepare File Buffer & Path
     const cleanFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
     const timestamp = Date.now();
-    const filePath = `articles/${timestamp}_${cleanFileName}`;
+    const folder = bucket === "projects" ? "projects" : "articles";
+    const filePath = `${folder}/${timestamp}_${cleanFileName}`;
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
     // 4. Upload with Supabase Admin Client (Bypasses RLS)
     const admin = createAdminClient();
-    const { data, error: uploadError } = await admin.storage
-      .from(bucket)
+    let uploadBucket = bucket;
+
+    let { data, error: uploadError } = await admin.storage
+      .from(uploadBucket)
       .upload(filePath, buffer, {
         contentType: file.type || "image/png",
         cacheControl: "31536000",
         upsert: true,
       });
 
+    // Fallback: If target bucket failed, try "blog" bucket
+    if (uploadError && uploadBucket !== "blog") {
+      console.warn(`Upload to ${uploadBucket} failed, falling back to blog bucket:`, uploadError);
+      uploadBucket = "blog";
+      const fallbackPath = `uploads/${timestamp}_${cleanFileName}`;
+      const fallbackResult = await admin.storage
+        .from("blog")
+        .upload(fallbackPath, buffer, {
+          contentType: file.type || "image/png",
+          cacheControl: "31536000",
+          upsert: true,
+        });
+      data = fallbackResult.data;
+      uploadError = fallbackResult.error;
+    }
+
     if (uploadError || !data) {
-      console.error("Admin upload failed:", uploadError);
+      console.error("Storage upload failed:", uploadError);
       return NextResponse.json(
         { error: uploadError?.message || "Storage upload failed." },
         { status: 500 }
@@ -64,7 +83,7 @@ export async function POST(request: NextRequest) {
     // 5. Get Public URL
     const {
       data: { publicUrl },
-    } = admin.storage.from(bucket).getPublicUrl(data.path);
+    } = admin.storage.from(uploadBucket).getPublicUrl(data.path);
 
     return NextResponse.json({
       success: true,

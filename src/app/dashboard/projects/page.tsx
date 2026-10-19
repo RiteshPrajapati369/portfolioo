@@ -148,8 +148,15 @@ export default function ProjectsDashboardPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!title.trim() || !slug.trim() || !description.trim()) {
-      feedback.error("Required Fields Missing", "Please fill in title, slug, and description.");
+    const cleanTitle = title.trim();
+    const cleanDesc = description.trim();
+    const cleanSlug = (slug.trim() || cleanTitle)
+      .toLowerCase()
+      .replace(/[^a-z0-9-]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    if (!cleanTitle || !cleanDesc) {
+      feedback.error("Required Fields Missing", "Please fill in title and description.");
       return;
     }
 
@@ -157,9 +164,9 @@ export default function ProjectsDashboardPage() {
     try {
       const payload = {
         id: editingId || undefined,
-        title: title.trim(),
-        slug: slug.trim(),
-        description: description.trim(),
+        title: cleanTitle,
+        slug: cleanSlug,
+        description: cleanDesc,
         content: content.trim() || null,
         category: category.trim(),
         github_url: githubUrl.trim() || null,
@@ -385,11 +392,11 @@ export default function ProjectsDashboardPage() {
             </div>
 
             {/* Thumbnail Upload */}
-            <div className="space-y-2 pt-2 border-t border-border">
-              <label className="text-xs font-mono font-medium text-foreground">
+            <div className="space-y-3 pt-2 border-t border-border">
+              <label className="text-xs font-mono font-medium text-foreground block">
                 Project Image / Architecture Diagram
               </label>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-4">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -401,13 +408,32 @@ export default function ProjectsDashboardPage() {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploading}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-background hover:bg-card text-xs font-mono text-foreground"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-background hover:bg-card text-xs font-mono text-foreground cursor-pointer disabled:opacity-50"
                 >
                   <Upload className="w-3.5 h-3.5 text-primary" />
-                  <span>Upload Image</span>
+                  <span>{isUploading ? "Uploading Image..." : "Upload Image"}</span>
                 </button>
+
                 {thumbnailUrl && (
-                  <span className="text-xs font-mono text-emerald-500">Image attached</span>
+                  <div className="flex items-center gap-2.5">
+                    <div className="relative w-16 h-10 rounded-lg overflow-hidden border border-border bg-background">
+                      <Image
+                        src={thumbnailUrl}
+                        alt="Thumbnail preview"
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    <span className="text-xs font-mono text-emerald-500">Image attached</span>
+                    <button
+                      type="button"
+                      onClick={() => setThumbnailUrl(null)}
+                      className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      title="Remove image"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 )}
                 {isUploading && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
               </div>
@@ -464,6 +490,12 @@ export default function ProjectsDashboardPage() {
                     </span>
                   </div>
                 </div>
+
+                {p.thumbnail_url && (
+                  <div className="relative w-full h-36 rounded-xl overflow-hidden border border-border bg-background">
+                    <Image src={p.thumbnail_url} alt={p.title} fill className="object-cover" />
+                  </div>
+                )}
 
                 <h3 className="font-mono font-bold text-base text-foreground">{p.title}</h3>
                 <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
