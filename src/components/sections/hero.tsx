@@ -15,13 +15,12 @@ interface HeroProps {
 }
 
 const DEFAULT_UPDATE: TechUpdate = {
-  id: "def-1",
+  id: "thn-latest",
   title:
-    "Linux Kernel Hardening: Memory Safety Mitigations and BPF Boundary Enforcement",
-  url: "https://news.ycombinator.com",
-  source: "",
-  timeAgo: "1h ago",
-  points: 412,
+    "OpenCode Console Breach May Have Exposed OpenAI, Anthropic, and Google API Keys",
+  url: "https://thehackernews.com/2026/10/opencode-console-breach-may-have.html",
+  source: "The Hacker News",
+  timeAgo: "today",
   category: "Cybersecurity",
 };
 
