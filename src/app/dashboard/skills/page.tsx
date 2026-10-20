@@ -32,28 +32,14 @@ export default function SkillsServicesDashboardPage() {
   const loadData = async () => {
     setIsLoading(true);
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
 
     let p: Profile | null = null;
-    if (user) {
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      p = data;
-    }
-
-    if (!p) {
-      const { data: firstProfile } = await supabase
-        .from("profiles")
-        .select("*")
-        .limit(1)
-        .maybeSingle();
-      p = firstProfile;
-    }
+    const { data: firstProfile } = await supabase
+      .from("profiles")
+      .select("*")
+      .limit(1)
+      .maybeSingle();
+    p = firstProfile;
 
     if (p) {
       setProfile(p);

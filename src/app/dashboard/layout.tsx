@@ -16,12 +16,15 @@ export default async function DashboardLayout({
   const isOwner = verifyOwnerSessionToken(ownerToken);
 
   let user = null;
-  try {
-    const supabase = createClient();
-    const { data } = await supabase.auth.getUser();
-    user = data.user;
-  } catch {
-    // Graceful fallback
+  // Fast path: Only make external Supabase Auth network call if owner session is NOT active
+  if (!isOwner) {
+    try {
+      const supabase = createClient();
+      const { data } = await supabase.auth.getUser();
+      user = data.user;
+    } catch {
+      // Graceful fallback
+    }
   }
 
   if (!user && !isOwner) {
@@ -33,7 +36,7 @@ export default async function DashboardLayout({
     redirect("/auth/login?next=/dashboard");
   }
 
-  const userEmail = user?.email || (isOwner ? OWNER_EMAIL : "panditritesh005@gmail.com");
+  const userEmail = isOwner ? OWNER_EMAIL : (user?.email || "panditritesh005@gmail.com");
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col lg:flex-row">

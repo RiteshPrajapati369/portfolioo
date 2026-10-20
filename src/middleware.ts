@@ -4,8 +4,8 @@ import { updateSession } from "@/lib/supabase-middleware";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 1. Refresh Supabase auth session
-  const { supabase, user, response } = await updateSession(request);
+  // 1. Fast-path check for Owner session (PBKDF2/HMAC signed session cookie)
+  // Evaluated in ~0.1ms without making slow external network calls to Supabase Auth
   const ownerCookieValue = request.cookies.get("ritesh_owner_session")?.value;
   let hasOwnerSession = false;
   if (ownerCookieValue) {
@@ -16,14 +16,35 @@ export async function middleware(request: NextRequest) {
       hasOwnerSession = false;
     }
   }
+
+  // 2. Resolve authentication response with zero latency for active owner session
+  let response: NextResponse;
+  let supabase: any = null;
+  let user: any = null;
+
+  if (hasOwnerSession) {
+    // Ultra-fast path: Skip external Supabase Auth network call completely!
+    response = NextResponse.next({
+      request: {
+        headers: request.headers,
+      },
+    });
+  } else {
+    // Only refresh Supabase session if owner session is not present
+    const sessionRes = await updateSession(request);
+    supabase = sessionRes.supabase;
+    user = sessionRes.user;
+    response = sessionRes.response;
+  }
+
   const isAuthenticated = hasOwnerSession || Boolean(user);
 
-  // 2. Redirect removed signup page directly to login
+  // 3. Redirect removed signup page directly to login
   if (pathname === "/auth/signup") {
     return NextResponse.redirect(new URL("/auth/login", request.url));
   }
 
-  // 3. Dashboard route protection & strict owner authorization
+  // 4. Dashboard route protection & strict owner authorization
   if (pathname.startsWith("/dashboard")) {
     if (!isAuthenticated) {
       const redirectUrl = new URL("/auth/login", request.url);
@@ -44,10 +65,8 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // 4. Auth login redirect if already logged in
+  // 5. Auth login redirect if already logged in
   if (pathname === "/auth/login") {
-    // If arriving with ?next= (meaning redirected from an unauthorized check) or ?error,
-    // do NOT redirect back to /dashboard. Clear the stale cookie and show the login form!
     if (request.nextUrl.searchParams.has("next") || request.nextUrl.searchParams.has("error")) {
       const loginResponse = NextResponse.next();
       loginResponse.cookies.delete("ritesh_owner_session");
@@ -59,7 +78,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // 4. Security Headers & Content-Security-Policy (CSP)
+  // 6. Security Headers & Content-Security-Policy (CSP)
   const isProd = process.env.NODE_ENV === "production";
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   let supabaseHost = "";

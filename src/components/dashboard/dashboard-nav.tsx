@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -10,6 +10,7 @@ import {
   X,
   ExternalLink,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { DASHBOARD_NAV_ITEMS } from "@/config/dashboard-nav";
 import { logoutAction } from "@/lib/auth-actions";
@@ -22,12 +23,23 @@ interface DashboardNavProps {
 export function DashboardNav({ userEmail }: DashboardNavProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  // Close mobile drawer and clear pending navigation state once route changes
+  useEffect(() => {
+    setPendingHref(null);
+    setMobileOpen(false);
+  }, [pathname]);
 
   return (
     <>
       {/* Mobile Top Header */}
       <header className="lg:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-card border-b border-border shadow-sm">
-        <Link href="/dashboard" className="flex items-center gap-2 font-mono font-bold text-sm">
+        <Link
+          href="/dashboard"
+          prefetch={false}
+          className="flex items-center gap-2 font-mono font-bold text-sm"
+        >
           <div className="w-7 h-7 rounded-lg bg-background border border-border flex items-center justify-center text-primary">
             <Shield className="w-4 h-4" />
           </div>
@@ -36,8 +48,9 @@ export function DashboardNav({ userEmail }: DashboardNavProps) {
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <button
+            type="button"
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="p-2 rounded-lg border border-border bg-background"
+            className="p-2 rounded-lg border border-border bg-background touch-manipulation"
             aria-label="Toggle menu"
           >
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -48,7 +61,9 @@ export function DashboardNav({ userEmail }: DashboardNavProps) {
       {/* Sidebar for Desktop & Mobile drawer */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border flex flex-col justify-between transition-transform duration-200 lg:translate-x-0 ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
+          mobileOpen
+            ? "translate-x-0 pointer-events-auto"
+            : "-translate-x-full pointer-events-none lg:pointer-events-auto"
         }`}
       >
         <div className="flex flex-col h-full">
@@ -56,6 +71,7 @@ export function DashboardNav({ userEmail }: DashboardNavProps) {
           <div className="p-6 border-b border-border flex items-center justify-between">
             <Link
               href="/dashboard"
+              prefetch={false}
               className="flex items-center gap-2.5 font-mono font-bold tracking-tight text-foreground"
             >
               <div className="w-9 h-9 rounded-xl bg-background border border-border flex items-center justify-center text-primary shadow-sm">
@@ -69,8 +85,9 @@ export function DashboardNav({ userEmail }: DashboardNavProps) {
               </div>
             </Link>
             <button
+              type="button"
               onClick={() => setMobileOpen(false)}
-              className="lg:hidden p-1.5 rounded-lg text-muted-foreground hover:text-foreground"
+              className="lg:hidden p-1.5 rounded-lg text-muted-foreground hover:text-foreground touch-manipulation"
             >
               <X className="w-5 h-5" />
             </button>
@@ -84,23 +101,41 @@ export function DashboardNav({ userEmail }: DashboardNavProps) {
                 item.href === "/dashboard"
                   ? pathname === "/dashboard"
                   : pathname.startsWith(item.href);
+              const isPending = pendingHref === item.href;
 
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  onClick={() => setMobileOpen(false)}
-                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl font-mono text-xs tracking-wider transition-all duration-150 ${
+                  prefetch={false}
+                  onClick={() => {
+                    if (pathname !== item.href) {
+                      setPendingHref(item.href);
+                    }
+                  }}
+                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl font-mono text-xs tracking-wider transition-all duration-150 cursor-pointer touch-manipulation select-none active:scale-[0.98] ${
                     isActive
                       ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                      : isPending
+                      ? "bg-primary/20 text-foreground border border-primary/40 font-medium"
                       : "text-muted-foreground hover:text-foreground hover:bg-background/80"
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className="w-4 h-4 shrink-0" />
+                    {isPending ? (
+                      <Loader2 className="w-4 h-4 shrink-0 animate-spin text-primary" />
+                    ) : (
+                      <Icon className="w-4 h-4 shrink-0" />
+                    )}
                     <span>{item.title}</span>
                   </div>
-                  {isActive && <ChevronRight className="w-3.5 h-3.5 shrink-0" />}
+                  {isPending ? (
+                    <span className="text-[10px] text-primary font-mono animate-pulse">
+                      LOADING
+                    </span>
+                  ) : isActive ? (
+                    <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+                  ) : null}
                 </Link>
               );
             })}
@@ -119,7 +154,8 @@ export function DashboardNav({ userEmail }: DashboardNavProps) {
               <Link
                 href="/"
                 target="_blank"
-                className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-border bg-card hover:bg-card/80 text-[11px] font-mono text-foreground transition-colors"
+                prefetch={false}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-border bg-card hover:bg-card/80 text-[11px] font-mono text-foreground transition-colors cursor-pointer touch-manipulation"
                 title="View live portfolio"
               >
                 <span>Live Site</span>
@@ -129,7 +165,7 @@ export function DashboardNav({ userEmail }: DashboardNavProps) {
               <form action={logoutAction} className="flex-1">
                 <button
                   type="submit"
-                  className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-destructive/40 bg-destructive/10 hover:bg-destructive/20 text-destructive text-[11px] font-mono transition-colors"
+                  className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-destructive/40 bg-destructive/10 hover:bg-destructive/20 text-destructive text-[11px] font-mono transition-colors cursor-pointer touch-manipulation"
                   title="Sign out securely"
                 >
                   <LogOut className="w-3 h-3" />
@@ -145,7 +181,7 @@ export function DashboardNav({ userEmail }: DashboardNavProps) {
       {mobileOpen && (
         <div
           onClick={() => setMobileOpen(false)}
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden touch-manipulation"
         />
       )}
     </>

@@ -39,12 +39,10 @@ export default function MessagesDashboardPage() {
     const { data, error } = await query;
     if (!error && data) {
       setMessages(data);
-      if (data.length > 0 && !selectedMessage) {
-        setSelectedMessage(data[0]);
-      }
+      setSelectedMessage((prev) => (prev ? prev : data[0] || null));
     }
     setIsLoading(false);
-  }, [filter, selectedMessage]);
+  }, [filter]);
 
   useEffect(() => {
     loadMessages();

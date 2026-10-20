@@ -10,41 +10,46 @@ import {
   User,
   Clock,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase-server";
+import { createAdminClient } from "@/lib/supabase-admin";
 import { getOwnerConfig } from "@/lib/owner-auth";
 import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardOverviewPage() {
-  const supabase = createClient();
+  let projectsCount = 0;
+  let blogCount = 0;
+  let messagesCount = 0;
+  let skillsCount = 0;
+  let recentMessages: any[] = [];
 
-  // Load summary metrics in parallel
-  const [
-    { count: projectsCount },
-    { count: blogCount },
-    { count: messagesCount },
-    { count: skillsCount },
-    { data: recentMessages },
-    { data: mfaFactors },
-  ] = await Promise.all([
-    supabase.from("projects").select("*", { count: "exact", head: true }),
-    supabase.from("blog_posts").select("*", { count: "exact", head: true }),
-    supabase
-      .from("contact_messages")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "new"),
-    supabase.from("skills").select("*", { count: "exact", head: true }),
-    supabase
-      .from("contact_messages")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(5),
-    supabase.auth.mfa.listFactors(),
-  ]);
+  try {
+    const admin = createAdminClient();
+    const [pRes, bRes, mRes, sRes, recentRes] = await Promise.all([
+      admin.from("projects").select("*", { count: "exact", head: true }).is("deleted_at", null),
+      admin.from("blog_posts").select("*", { count: "exact", head: true }),
+      admin
+        .from("contact_messages")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "new"),
+      admin.from("skills").select("*", { count: "exact", head: true }),
+      admin
+        .from("contact_messages")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(5),
+    ]);
 
-  const isOwnerMfa = Boolean(getOwnerConfig()?.mfaEnabled);
-  const hasMfa = isOwnerMfa || Boolean(mfaFactors?.totp?.some((f) => f.status === "verified"));
+    projectsCount = pRes.count || 0;
+    blogCount = bRes.count || 0;
+    messagesCount = mRes.count || 0;
+    skillsCount = sRes.count || 0;
+    recentMessages = recentRes.data || [];
+  } catch (err) {
+    console.warn("Dashboard overview metrics query error:", err);
+  }
+
+  const hasMfa = Boolean(getOwnerConfig()?.mfaEnabled);
 
   return (
     <div className="space-y-8">
