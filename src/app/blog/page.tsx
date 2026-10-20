@@ -8,9 +8,19 @@ import { formatDate } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Blog & Research | Ritesh Prajapati",
+  title: "Blog & Cybersecurity Research | Ritesh Prajapati",
   description:
     "Security write-ups, vulnerability assessment notes, penetration testing methodologies, and defensive engineering research by Ritesh Prajapati.",
+  alternates: {
+    canonical: "https://riteshprajapati.com.np/blog",
+  },
+  openGraph: {
+    title: "Blog & Cybersecurity Research | Ritesh Prajapati",
+    description:
+      "Technical write-ups, threat analysis, and penetration testing methodologies by Ritesh Prajapati.",
+    url: "https://riteshprajapati.com.np/blog",
+    type: "website",
+  },
 };
 
 export default async function BlogPage() {

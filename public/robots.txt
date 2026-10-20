@@ -1,0 +1,23 @@
+User-agent: *
+Allow: /
+Allow: /blog
+Allow: /blog/*
+Allow: /images/*
+Disallow: /dashboard/
+Disallow: /dashboard/*
+Disallow: /api/
+Disallow: /api/*
+Disallow: /auth/
+Disallow: /auth/*
+
+User-agent: Googlebot
+Allow: /
+Allow: /blog
+Allow: /blog/*
+Allow: /images/*
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /auth/
+
+Sitemap: https://riteshprajapati.com.np/sitemap.xml
+Host: https://riteshprajapati.com.np

@@ -9,5 +9,11 @@
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
-  }
+  },
+  "routes": [
+    {
+      "pattern": "riteshprajapati.com.np",
+      "custom_domain": true
+    }
+  ]
 }

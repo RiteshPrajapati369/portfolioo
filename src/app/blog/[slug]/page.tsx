@@ -21,9 +21,30 @@ export async function generateMetadata({ params }: BlogPostPageProps) {
   if (!post) {
     return { title: "Post Not Found | Ritesh Prajapati" };
   }
+  const postUrl = `https://riteshprajapati.com.np/blog/${post.slug}`;
   return {
     title: `${post.title} | Ritesh Prajapati`,
     description: post.summary,
+    alternates: {
+      canonical: postUrl,
+    },
+    openGraph: {
+      title: `${post.title} | Ritesh Prajapati`,
+      description: post.summary,
+      url: postUrl,
+      type: "article",
+      publishedTime: post.created_at,
+      modifiedTime: post.updated_at,
+      authors: ["Ritesh Prajapati"],
+      images: post.cover_image_url ? [{ url: post.cover_image_url }] : [],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description: post.summary,
+      creator: "@RiteshPraj8063",
+      images: post.cover_image_url ? [post.cover_image_url] : [],
+    },
   };
 }
 
@@ -40,8 +61,37 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     notFound();
   }
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": post.title,
+    "description": post.summary,
+    "datePublished": post.published_at || post.created_at,
+    "dateModified": post.updated_at || post.created_at,
+    "url": `https://riteshprajapati.com.np/blog/${post.slug}`,
+    "image": post.cover_image_url || "https://riteshprajapati.com.np/images/profile.png",
+    "author": {
+      "@type": "Person",
+      "name": "Ritesh Prajapati",
+      "url": "https://riteshprajapati.com.np",
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "Ritesh Prajapati",
+      "url": "https://riteshprajapati.com.np",
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": `https://riteshprajapati.com.np/blog/${post.slug}`,
+    },
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground font-sans">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <Navbar navLinks={navLinks} profileName={profile?.full_name} />
 
       <main className="flex-1 pt-32 pb-24 px-4 sm:px-6">

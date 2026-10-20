@@ -16,28 +16,61 @@ export async function generateMetadata() {
     ContentService.getSeoSettings(),
   ]);
 
+  const fullName = profile?.full_name || "Ritesh Prajapati";
   const siteTitle =
-    seo?.meta_title || settings?.site_title || `${profile?.full_name || "Ritesh Prajapati"} | Cybersecurity Portfolio`;
+    seo?.meta_title || settings?.site_title || `${fullName} | Cybersecurity Specialist & Penetration Tester`;
   const description =
     seo?.meta_description ||
     settings?.tagline ||
     profile?.bio ||
-    "Cybersecurity portfolio of Ritesh Prajapati, specialized in Penetration Testing, Bug Hunting, IDS/IPS, and Secure Systems Architecture.";
+    "Official cybersecurity portfolio of Ritesh Prajapati, specialized in Penetration Testing, Bug Hunting, IDS/IPS architectures, and Secure Systems Engineering.";
+
+  const keywords = seo?.meta_keywords && seo.meta_keywords.length > 0
+    ? seo.meta_keywords
+    : [
+        "Ritesh Prajapati",
+        "Ritesh Prajapati Cybersecurity",
+        "Ritesh Prajapati Portfolio",
+        "Ritesh Prajapati Penetration Tester",
+        "Ritesh Prajapati Nepal",
+        "Cybersecurity Specialist",
+        "Penetration Testing",
+        "Bug Hunting",
+        "IDS/IPS",
+        "Snort Suricata",
+        "Ethical Hacker Nepal",
+      ];
+
+  const ogImage = seo?.og_image_url || "/images/profile.png";
 
   return {
     title: siteTitle,
     description,
-    keywords: seo?.meta_keywords || [
-      "Cybersecurity",
-      "Penetration Testing",
-      "Bug Hunting",
-      "IDS/IPS",
-      "Ritesh Prajapati",
-    ],
+    keywords,
+    alternates: {
+      canonical: "https://riteshprajapati.com.np",
+    },
     openGraph: {
       title: siteTitle,
       description,
-      images: seo?.og_image_url ? [{ url: seo.og_image_url }] : [],
+      url: "https://riteshprajapati.com.np",
+      siteName: `${fullName} Portfolio`,
+      images: [
+        {
+          url: ogImage.startsWith("http") ? ogImage : `https://riteshprajapati.com.np${ogImage}`,
+          width: 800,
+          height: 800,
+          alt: `${fullName} - Cybersecurity Specialist`,
+        },
+      ],
+      type: "profile",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: siteTitle,
+      description,
+      creator: "@RiteshPraj8063",
+      images: [ogImage.startsWith("http") ? ogImage : `https://riteshprajapati.com.np${ogImage}`],
     },
   };
 }
