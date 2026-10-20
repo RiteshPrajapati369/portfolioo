@@ -13,11 +13,15 @@ import {
   Phone,
   ShieldCheck,
   CheckCircle2,
+  Sparkles,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase-browser";
 import { uploadFile } from "@/lib/storage";
 import { feedback } from "@/lib/feedback";
 import type { Profile } from "@/types";
+
+const DEFAULT_DETAILED_ABOUT =
+  "With practical experience configuring rule-based Intrusion Detection and Prevention Systems (Snort/Suricata), architecting secure authentication workflows with multi-factor verification, and performing code-level audits across HTML, CSS, JavaScript, and PHP, my objective is to fortify systems before adversaries can exploit them.";
 
 export default function ProfileDashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -31,6 +35,7 @@ export default function ProfileDashboardPage() {
   const [fullName, setFullName] = useState("");
   const [headline, setHeadline] = useState("");
   const [bio, setBio] = useState("");
+  const [aboutDescription, setAboutDescription] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -43,32 +48,55 @@ export default function ProfileDashboardPage() {
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
 
-      let targetUserId = user?.id || null;
-      let p: Profile | null = null;
+      let targetUserId: string | null = null;
+      let p: any = null;
 
-      if (targetUserId) {
-        const { data } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("user_id", targetUserId)
-          .maybeSingle();
-        p = data;
+      // 1. Try server-side dashboard profile API first
+      try {
+        const res = await fetch("/api/dashboard/profile");
+        if (res.ok) {
+          const json = (await res.json()) as any;
+          if (json.profile) {
+            p = json.profile;
+            targetUserId = p.user_id;
+          }
+        }
+      } catch (apiErr) {
+        console.warn("Could not fetch profile via API route, falling back to Supabase client:", apiErr);
       }
 
+      // 2. Fallback to client-side Supabase
       if (!p) {
-        const { data: firstProfile } = await supabase
-          .from("profiles")
-          .select("*")
-          .limit(1)
-          .maybeSingle();
-        p = firstProfile;
-        if (p?.user_id) {
-          targetUserId = p.user_id;
+        try {
+          const supabase = createClient();
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+
+          if (user?.id) {
+            targetUserId = user.id;
+            const { data } = await supabase
+              .from("profiles")
+              .select("*")
+              .eq("user_id", targetUserId)
+              .maybeSingle();
+            p = data;
+          }
+
+          if (!p) {
+            const { data: firstProfile } = await supabase
+              .from("profiles")
+              .select("*")
+              .limit(1)
+              .maybeSingle();
+            p = firstProfile;
+            if (p?.user_id) {
+              targetUserId = p.user_id;
+            }
+          }
+        } catch (supabaseErr) {
+          console.warn("Client supabase query error:", supabaseErr);
         }
       }
 
@@ -76,21 +104,25 @@ export default function ProfileDashboardPage() {
 
       if (p) {
         setProfile(p);
-        setFullName(p.full_name || "");
-        setHeadline(p.headline || "");
+        setFullName(p.full_name || "Ritesh Prajapati");
+        setHeadline(p.headline || "Cybersecurity Specialist & Penetration Tester");
         setBio(p.bio || "");
+        setAboutDescription(p.about_description ?? DEFAULT_DETAILED_ABOUT);
         setAvatarUrl(p.avatar_url || null);
-        setEmail(p.email || user?.email || "panditritesh005@gmail.com");
+        setEmail(p.email || "panditritesh005@gmail.com");
         setPhone(p.phone || "");
-        setLocation(p.location || "");
+        setLocation(p.location || "Kathmandu, Nepal");
         setResumeUrl(p.resume_url || null);
       } else {
-        setEmail(user?.email || "panditritesh005@gmail.com");
+        setEmail("panditritesh005@gmail.com");
         setFullName("Ritesh Prajapati");
         setHeadline("Cybersecurity Specialist & Penetration Tester");
+        setAboutDescription(DEFAULT_DETAILED_ABOUT);
       }
+
       setIsLoading(false);
     }
+
     loadData();
   }, []);
 
@@ -135,42 +167,67 @@ export default function ProfileDashboardPage() {
     if (!userId) return;
 
     setIsSaving(true);
-    const supabase = createClient();
+
+    const payload = {
+      id: profile?.id,
+      user_id: userId,
+      full_name: fullName.trim(),
+      headline: headline.trim(),
+      bio: bio.trim(),
+      about_description: aboutDescription.trim(),
+      avatar_url: avatarUrl,
+      email: email.trim(),
+      phone: phone.trim() || null,
+      location: location.trim() || null,
+      resume_url: resumeUrl,
+      status: "published",
+      updated_at: new Date().toISOString(),
+    };
 
     try {
-      const payload = {
-        user_id: userId,
-        full_name: fullName.trim(),
-        headline: headline.trim(),
-        bio: bio.trim(),
-        avatar_url: avatarUrl,
-        email: email.trim(),
-        phone: phone.trim() || null,
-        location: location.trim() || null,
-        resume_url: resumeUrl,
-        status: "published",
-        updated_at: new Date().toISOString(),
-      };
+      // 1. Try server API route first
+      let saved = false;
+      try {
+        const res = await fetch("/api/dashboard/profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
 
-      if (profile?.id) {
-        const { error } = await supabase
-          .from("profiles")
-          .update(payload)
-          .eq("id", profile.id);
-
-        if (error) throw error;
-      } else {
-        const { data: newProfile, error } = await supabase
-          .from("profiles")
-          .insert(payload)
-          .select()
-          .single();
-
-        if (error) throw error;
-        setProfile(newProfile);
+        if (res.ok) {
+          const json = (await res.json()) as any;
+          if (json.profile) {
+            setProfile(json.profile);
+            saved = true;
+          }
+        }
+      } catch (apiErr) {
+        console.warn("Profile save via API failed, attempting client fallback:", apiErr);
       }
 
-      feedback.success("Profile Updated", "Changes are now live on your portfolio.");
+      // 2. Fallback to direct client Supabase
+      if (!saved) {
+        const supabase = createClient();
+        if (profile?.id) {
+          const { error } = await supabase
+            .from("profiles")
+            .update(payload)
+            .eq("id", profile.id);
+
+          if (error) throw error;
+        } else {
+          const { data: newProfile, error } = await supabase
+            .from("profiles")
+            .insert(payload)
+            .select()
+            .single();
+
+          if (error) throw error;
+          setProfile(newProfile);
+        }
+      }
+
+      feedback.success("Profile Updated", "All About section changes are now live on your portfolio.");
     } catch (err: any) {
       console.error("Save error:", err);
       feedback.error("Save Failed", err?.message || "Could not update profile.");
@@ -192,15 +249,15 @@ export default function ProfileDashboardPage() {
     <div className="space-y-8 max-w-4xl">
       <div className="border-b border-border pb-6">
         <h1 className="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-foreground">
-          Profile & Circular Avatar
+          Profile & About Section
         </h1>
         <p className="text-xs sm:text-sm text-muted-foreground font-mono mt-1">
-          Manage your personal brand, circular headshot, credentials, and resume
+          Manage your personal brand, About section content, circular headshot, credentials, and resume
         </p>
       </div>
 
       <form onSubmit={handleSave} className="space-y-8">
-        {/* Avatar & Resume Upload Row */}
+        {/* Visual Identity Row */}
         <div className="rounded-2xl border border-border bg-card/60 p-6 sm:p-8 space-y-6 shadow-sm">
           <h2 className="text-sm font-mono font-bold uppercase tracking-wider text-primary">
             Visual Identity
@@ -248,8 +305,7 @@ export default function ProfileDashboardPage() {
                 <span>Upload Circular Avatar</span>
               </button>
               <p className="text-[11px] font-mono text-muted-foreground">
-                PNG, JPG or WebP. Automatically displayed in a modern circular frame on the public
-                hero.
+                PNG, JPG or WebP. Automatically displayed in a modern circular frame on the public About & Hero sections.
               </p>
             </div>
           </div>
@@ -297,11 +353,16 @@ export default function ProfileDashboardPage() {
           </div>
         </div>
 
-        {/* Profile Content Fields */}
-        <div className="rounded-2xl border border-border bg-card/60 p-6 sm:p-8 space-y-5 shadow-sm">
-          <h2 className="text-sm font-mono font-bold uppercase tracking-wider text-primary">
-            Biographical Details
-          </h2>
+        {/* About Section & Biographical Content */}
+        <div className="rounded-2xl border border-border bg-card/60 p-6 sm:p-8 space-y-6 shadow-sm">
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <h2 className="text-sm font-mono font-bold uppercase tracking-wider text-primary">
+              About Section & Biographical Content
+            </h2>
+            <span className="text-[11px] font-mono text-muted-foreground">
+              Fully editable public About content
+            </span>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div className="space-y-1.5">
@@ -314,13 +375,14 @@ export default function ProfileDashboardPage() {
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
+                placeholder="Ritesh Prajapati"
                 className="w-full px-4 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm font-sans focus:border-primary focus:outline-none"
               />
             </div>
 
             <div className="space-y-1.5">
               <label htmlFor="headline" className="text-xs font-mono font-medium text-foreground">
-                Headline / Subtitle
+                Headline / Title
               </label>
               <input
                 id="headline"
@@ -328,26 +390,57 @@ export default function ProfileDashboardPage() {
                 required
                 value={headline}
                 onChange={(e) => setHeadline(e.target.value)}
+                placeholder="Cybersecurity Specialist & Penetration Tester"
                 className="w-full px-4 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm font-sans focus:border-primary focus:outline-none"
               />
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="bio" className="text-xs font-mono font-medium text-foreground">
-              Professional Bio
-            </label>
+          {/* 1. Short Bio (Lead Introductory Paragraph) */}
+          <div className="space-y-2 pt-2">
+            <div className="flex items-center justify-between">
+              <label htmlFor="bio" className="text-xs font-mono font-medium text-foreground">
+                About Section: Short Bio (Introductory Summary)
+              </label>
+              <span className="text-[11px] font-mono text-primary/80">Paragraph 1</span>
+            </div>
             <textarea
               id="bio"
               rows={4}
               required
               value={bio}
               onChange={(e) => setBio(e.target.value)}
+              placeholder="Cybersecurity professional specializing in Penetration Testing..."
               className="w-full px-4 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm font-sans focus:border-primary focus:outline-none resize-y"
             />
+            <p className="text-[11px] font-mono text-muted-foreground">
+              This is the prominent lead summary paragraph displayed directly under your name and title in the public About section.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 pt-2">
+          {/* 2. Detailed Description & Practical Experience (Longer Paragraph) */}
+          <div className="space-y-2 pt-2">
+            <div className="flex items-center justify-between">
+              <label htmlFor="aboutDescription" className="text-xs font-mono font-medium text-foreground">
+                About Section: Detailed Description & Practical Experience (Longer Paragraph)
+              </label>
+              <span className="text-[11px] font-mono text-primary/80">Paragraph 2+</span>
+            </div>
+            <textarea
+              id="aboutDescription"
+              rows={6}
+              value={aboutDescription}
+              onChange={(e) => setAboutDescription(e.target.value)}
+              placeholder="With practical experience configuring rule-based Intrusion Detection..."
+              className="w-full px-4 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm font-sans focus:border-primary focus:outline-none resize-y"
+            />
+            <p className="text-[11px] font-mono text-muted-foreground">
+              This is the detailed description paragraph in the About section detailing your practical tools, certifications, audits, and technical focus. You can write multiple paragraphs by separating them with a blank line.
+            </p>
+          </div>
+
+          {/* Contact and Location Info */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 pt-3 border-t border-border/80">
             <div className="space-y-1.5">
               <label htmlFor="email" className="text-xs font-mono font-medium text-foreground">
                 Email

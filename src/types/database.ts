@@ -16,6 +16,7 @@ export interface Database {
           full_name: string;
           headline: string;
           bio: string;
+          about_description: string | null;
           avatar_url: string | null;
           email: string;
           phone: string | null;
@@ -34,6 +35,7 @@ export interface Database {
           full_name: string;
           headline: string;
           bio: string;
+          about_description?: string | null;
           avatar_url?: string | null;
           email: string;
           phone?: string | null;
@@ -52,6 +54,7 @@ export interface Database {
           full_name?: string;
           headline?: string;
           bio?: string;
+          about_description?: string | null;
           avatar_url?: string | null;
           email?: string;
           phone?: string | null;

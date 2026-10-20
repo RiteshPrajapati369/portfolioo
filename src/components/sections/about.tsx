@@ -41,13 +41,24 @@ export function About({ profile, skills, services }: AboutProps) {
             </div>
 
             <div className="space-y-4 text-base sm:text-lg text-muted-foreground leading-relaxed font-normal">
-              <p>
-                {profile?.bio ||
-                  "I am a cybersecurity specialist with a dedicated focus on offensive penetration testing, bug hunting, and defensive perimeter engineering. I actively analyze threat vectors, identify high-risk vulnerabilities, and conduct thorough security assessments across modern web architectures and network infrastructures."}
-              </p>
-              <p className="text-sm sm:text-base text-muted-foreground/90 leading-relaxed">
-                With practical experience configuring rule-based Intrusion Detection and Prevention Systems (Snort/Suricata), architecting secure authentication workflows with multi-factor verification, and performing code-level audits across HTML, CSS, JavaScript, and PHP, my objective is to fortify systems before adversaries can exploit them.
-              </p>
+              {(profile?.bio ||
+                "I am a cybersecurity specialist with a dedicated focus on offensive penetration testing, bug hunting, and defensive perimeter engineering. I actively analyze threat vectors, identify high-risk vulnerabilities, and conduct thorough security assessments across modern web architectures and network infrastructures."
+              )
+                .split(/\n\s*\n/)
+                .map((paragraph, index) => (
+                  <p key={`bio-${index}`} className="whitespace-pre-line">
+                    {paragraph.trim()}
+                  </p>
+                ))}
+              {(profile?.about_description ||
+                "With practical experience configuring rule-based Intrusion Detection and Prevention Systems (Snort/Suricata), architecting secure authentication workflows with multi-factor verification, and performing code-level audits across HTML, CSS, JavaScript, and PHP, my objective is to fortify systems before adversaries can exploit them."
+              )
+                .split(/\n\s*\n/)
+                .map((paragraph, index) => (
+                  <p key={`desc-${index}`} className="text-sm sm:text-base text-muted-foreground/90 leading-relaxed whitespace-pre-line">
+                    {paragraph.trim()}
+                  </p>
+                ))}
             </div>
 
             {/* Action Buttons: Download CV + Contact */}
