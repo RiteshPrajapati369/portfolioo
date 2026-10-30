@@ -11,7 +11,9 @@ export default function robots(): MetadataRoute.Robots {
         disallow: [
           "/dashboard",
           "/dashboard/*",
+          "/api",
           "/api/*",
+          "/auth",
           "/auth/*",
           "/_next/*",
         ],
@@ -19,10 +21,16 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "Googlebot",
         allow: ["/", "/blog", "/blog/*", "/images/*"],
-        disallow: ["/dashboard/*", "/api/*", "/auth/*"],
+        disallow: [
+          "/dashboard",
+          "/dashboard/*",
+          "/api",
+          "/api/*",
+          "/auth",
+          "/auth/*",
+        ],
       },
     ],
     sitemap: `${baseUrl}/sitemap.xml`,
-    host: baseUrl,
   };
 }

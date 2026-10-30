@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase-server";
@@ -5,6 +6,17 @@ import { DashboardNav } from "@/components/dashboard/dashboard-nav";
 import { verifyOwnerSessionToken, OWNER_EMAIL } from "@/lib/owner-auth";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+    },
+  },
+};
 
 export default async function DashboardLayout({
   children,
